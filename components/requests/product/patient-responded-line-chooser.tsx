@@ -45,6 +45,13 @@ import {
   type LineBranch,
   type LineSelState,
 } from "@/components/requests/product/patient-product-request-actions";
+import {
+  VARIANT_TAB_CHECKBOX_PAD,
+  variantRetainBarLabelClass,
+  variantRetainBarShellClass,
+  variantTabCheckboxBoxClass,
+  variantTabShellClass,
+} from "@/lib/variant-tabs-chrome";
 
 /** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
 const RESPONDED_LINE_THUMB =
@@ -292,24 +299,25 @@ type VariantData = {
   principalStatusLabel: string | null;
 };
 
-const TAB_CHECKBOX_PAD = "flex shrink-0 items-center py-1 ps-2 pe-1";
+const TAB_CHECKBOX_PAD = VARIANT_TAB_CHECKBOX_PAD;
 
 function RespondedVariantTabCheckbox({
   tabId,
+  tabLabel,
   retainable,
   isSelected,
+  readOnly,
+  onToggle,
 }: {
   tabId: string;
+  tabLabel: string;
   retainable: boolean;
   isSelected: boolean;
+  readOnly: boolean;
+  onToggle: (on: boolean) => void;
 }) {
-  const isPrincipal = tabId === "principal";
-  const closedBoxClass = cn(
-    "size-3.5 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
-    isSelected && retainable && isPrincipal
-      ? "border-emerald-500/70"
-      : "border-border/80"
-  );
+  const tResponded = useTranslations("demandes.responded");
+  const closedBoxClass = variantTabCheckboxBoxClass(isSelected && retainable);
 
   if (!retainable) {
     return (
@@ -319,10 +327,14 @@ function RespondedVariantTabCheckbox({
     );
   }
 
-  if (isPrincipal) {
+  const ariaLabel = isSelected
+    ? tResponded("retainTabAriaOff", { label: tabLabel })
+    : tResponded("retainTabAria", { label: tabLabel });
+
+  if (readOnly) {
     return (
-      <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden>
-        {isSelected && retainable ? (
+      <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden={!isSelected}>
+        {isSelected ? (
           <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
         ) : (
           <span className={closedBoxClass} />
@@ -332,41 +344,37 @@ function RespondedVariantTabCheckbox({
   }
 
   return (
-    <span className={cn(TAB_CHECKBOX_PAD, "justify-center")} aria-hidden={!isSelected}>
+    <button
+      type="button"
+      className={cn(TAB_CHECKBOX_PAD, "rounded-md hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40")}
+      aria-pressed={isSelected}
+      aria-label={ariaLabel}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(!isSelected);
+      }}
+    >
       {isSelected ? (
-        <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
+        <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden />
       ) : (
-        <span className={closedBoxClass} />
+        <span className={closedBoxClass} aria-hidden />
       )}
-    </span>
-  );
-}
-
-function respondedVariantTabShellClass(opts: {
-  retainable: boolean;
-  isViewing: boolean;
-  isSelected?: boolean;
-  isPrincipal?: boolean;
-}): string {
-  const { retainable, isViewing } = opts;
-  const focusShell = "border-foreground/20 bg-card shadow-sm ring-1 ring-foreground/5";
-
-  return cn(
-    "flex min-h-[1.85rem] min-w-0 items-center rounded-lg border border-border/80 bg-muted/20 transition",
-    isViewing && focusShell,
-    !isViewing && retainable && "hover:border-border hover:bg-card",
-    !isViewing && !retainable && "opacity-90"
+    </button>
   );
 }
 
 function RespondedVariantRetainBar({
   tabId,
+  tabLabel,
+  altRank,
   retainable,
   isSelected,
   readOnly,
   onToggle,
 }: {
   tabId: string;
+  tabLabel: string;
+  altRank?: number;
   retainable: boolean;
   isSelected: boolean;
   readOnly: boolean;
@@ -374,7 +382,12 @@ function RespondedVariantRetainBar({
 }) {
   const tResponded = useTranslations("demandes.responded");
   const isPrincipal = tabId === "principal";
-  const retainLabel = isPrincipal ? tResponded("retainPrincipal") : tResponded("retainAlternative");
+  const retainLabelLong = isPrincipal ? tResponded("retainPrincipal") : tResponded("retainAlternative");
+  const retainLabelShort = isSelected
+    ? isPrincipal
+      ? tResponded("retainShortPrincipal")
+      : tResponded("retainShortAlt", { n: altRank ?? 1 })
+    : retainLabelLong;
 
   if (!retainable) {
     return (
@@ -384,71 +397,19 @@ function RespondedVariantRetainBar({
     );
   }
 
-  if (isPrincipal) {
-    const closedBoxClass =
-      "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
-    const retainBarShell = cn(
-      "flex w-full items-center justify-center gap-2.5 rounded-lg border px-3 py-2.5 transition",
-      isSelected
-        ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
-        : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
-    );
-    const retainBarLabel = cn(
-      "text-[12px] font-bold leading-snug",
-      isSelected ? "text-emerald-900" : "text-foreground"
-    );
-    if (readOnly) {
-      return (
-        <div className={retainBarShell}>
-          {isSelected ? (
-            <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-          ) : (
-            <span className={closedBoxClass} aria-hidden />
-          )}
-          <span className={retainBarLabel}>{retainLabel}</span>
-        </div>
-      );
-    }
+  const closedBoxClass = variantTabCheckboxBoxClass(isSelected);
+  const retainBarShell = variantRetainBarShellClass(isSelected);
+  const retainBarLabel = variantRetainBarLabelClass(isSelected);
+
+  if (readOnly) {
     return (
-      <button
-        type="button"
-        className={retainBarShell}
-        aria-pressed={isSelected}
-        aria-label={isSelected ? tResponded("retainAriaOn") : retainLabel}
-        onClick={() => onToggle(!isSelected)}
-      >
+      <div className={retainBarShell}>
         {isSelected ? (
           <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
         ) : (
           <span className={closedBoxClass} aria-hidden />
         )}
-        <span className={retainBarLabel}>{retainLabel}</span>
-      </button>
-    );
-  }
-
-  const altRetainBarShell = cn(
-    "flex w-full items-center justify-center gap-2.5 rounded-lg border px-3 py-2.5 transition",
-    isSelected
-      ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
-      : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
-  );
-  const altRetainBarLabel = cn(
-    "text-[12px] font-bold leading-snug",
-    isSelected ? "text-emerald-900" : "text-foreground"
-  );
-  const altClosedBoxClass =
-    "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
-
-  if (readOnly) {
-    return (
-      <div className={altRetainBarShell}>
-        {isSelected ? (
-          <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-        ) : (
-          <span className={altClosedBoxClass} aria-hidden />
-        )}
-        <span className={altRetainBarLabel}>{retainLabel}</span>
+        <span className={retainBarLabel}>{retainLabelShort}</span>
       </div>
     );
   }
@@ -456,17 +417,17 @@ function RespondedVariantRetainBar({
   return (
     <button
       type="button"
-      className={altRetainBarShell}
+      className={retainBarShell}
       aria-pressed={isSelected}
-      aria-label={isSelected ? tResponded("retainAriaOn") : retainLabel}
+      aria-label={isSelected ? tResponded("retainAriaOn") : tResponded("retainTabAria", { label: tabLabel })}
       onClick={() => onToggle(!isSelected)}
     >
       {isSelected ? (
         <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
       ) : (
-        <span className={altClosedBoxClass} aria-hidden />
+        <span className={closedBoxClass} aria-hidden />
       )}
-      <span className={altRetainBarLabel}>{retainLabel}</span>
+      <span className={retainBarLabel}>{retainLabelShort}</span>
     </button>
   );
 }
@@ -476,13 +437,17 @@ function RespondedVariantTabs({
   activeTab,
   selectedTabId,
   onTab,
+  readOnly,
+  onToggleRetain,
   className,
 }: {
-  tabs: { id: string; label: string; retainable: boolean }[];
+  tabs: { id: string; label: string; retainable: boolean; tooltip?: string }[];
   activeTab: string;
   /** Onglet dont la branche est cochée par le patient (`null` = aucune). */
   selectedTabId: string | null;
   onTab: (id: string) => void;
+  readOnly: boolean;
+  onToggleRetain: (tabId: string, on: boolean) => void;
   className?: string;
 }) {
   const tResponded = useTranslations("demandes.responded");
@@ -493,26 +458,27 @@ function RespondedVariantTabs({
         {tabs.map((tab) => {
           const isViewing = tab.id === activeTab;
           const isSelected = selectedTabId === tab.id;
-          const isPrincipal = tab.id === "principal";
           const dim = !tab.retainable;
           return (
             <div
               key={tab.id}
               role="presentation"
               className={cn(
-                respondedVariantTabShellClass({
+                variantTabShellClass({
                   retainable: tab.retainable,
                   isViewing,
                   isSelected,
-                  isPrincipal,
                 }),
-                isPrincipal ? "min-w-[4.75rem] flex-[1.25]" : "min-w-[3.25rem] flex-1"
+                tab.id === "principal" ? "min-w-[4.75rem] flex-[1.25]" : "min-w-[3.25rem] flex-1"
               )}
             >
               <RespondedVariantTabCheckbox
                 tabId={tab.id}
+                tabLabel={tab.label}
                 retainable={tab.retainable}
                 isSelected={isSelected}
+                readOnly={readOnly}
+                onToggle={(on) => onToggleRetain(tab.id, on)}
               />
               <button
                 type="button"
@@ -520,18 +486,20 @@ function RespondedVariantTabs({
                 aria-selected={isViewing}
                 aria-current={isViewing ? "true" : undefined}
                 title={
-                  dim
+                  tab.tooltip ??
+                  (dim
                     ? tResponded("notRetainableStatus")
                     : isViewing
                       ? tResponded("optionShown")
-                      : tResponded("clickToView")
+                      : tResponded("clickToView"))
                 }
                 className={cn(
                   "min-w-0 flex-1 truncate py-1 pe-1.5 text-start text-[10px] font-semibold leading-none transition",
                   dim && !isViewing && "text-muted-foreground",
                   dim && isViewing && "text-foreground",
                   !dim && isViewing && "text-foreground",
-                  !dim && !isViewing && "text-muted-foreground"
+                  !dim && !isViewing && "text-muted-foreground",
+                  isSelected && "font-bold"
                 )}
                 onClick={() => onTab(tab.id)}
               >
@@ -670,6 +638,7 @@ function RespondedLineBlock({
   formatDateShort: (iso: string) => string;
   tCommon: ReturnType<typeof useTranslations<"common">>;
 }) {
+  const tResponded = useTranslations("demandes.responded");
   const kindTheme = requestKindUiTheme(requestType);
   const unavailable = variant.cap < 1;
   /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
@@ -726,16 +695,30 @@ function RespondedLineBlock({
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="space-y-1">
-            <p
-              className={cn(
-                "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug",
-                unavailable ? "text-slate-600" : "text-foreground",
-                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
-              )}
-              title={variant.productName}
-            >
-              {variant.productName}
-            </p>
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <p
+                className={cn(
+                  "line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug",
+                  unavailable ? "text-slate-600" : "text-foreground",
+                  notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
+                )}
+                title={variant.productName}
+              >
+                {variant.productName}
+              </p>
+              {variantTabsAbove ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded border px-1.5 py-px text-[9px] font-semibold leading-none",
+                    retained
+                      ? "border-emerald-500/50 bg-emerald-50/80 text-emerald-900"
+                      : "border-border/70 bg-muted/30 text-muted-foreground"
+                  )}
+                >
+                  {retained ? tResponded("optionRetained") : tResponded("optionViewing")}
+                </span>
+              ) : null}
+            </div>
 
             {isProposedBlock ? (
               <RespondedProposedMotifBlock
@@ -998,6 +981,17 @@ export function RespondedPatientLineChooser({
     setBrowseTab(tabId);
   };
 
+  const handleToggleRetain = (tabId: string, on: boolean) => {
+    const branch = branchFromTab(tabId);
+    toggleLineRetention(row.id, on, branch);
+    if (on) setBrowseTab(tabId);
+  };
+
+  const activeAltRank =
+    activeVariant.tabId !== "principal"
+      ? altList.findIndex((a) => a.id === activeVariant.tabId) + 1
+      : undefined;
+
   if (!hasAlts) {
     const v = buildPrincipalVariant();
     return (
@@ -1029,24 +1023,26 @@ export function RespondedPatientLineChooser({
     <li className={cn(patientLineRowClass(requestType), "overflow-visible")}>
       <div className="space-y-2 pb-2">
         <RespondedVariantTabs
-          tabs={variants.map((v) => ({
+          tabs={variants.map((v, i) => ({
             id: v.tabId,
             label: v.tabLabel,
             retainable: v.cap > 0,
+            tooltip: i > 0 ? v.productName : undefined,
           }))}
           activeTab={activeTab}
           selectedTabId={selectedTabId}
           onTab={onTab}
+          readOnly={readOnly}
+          onToggleRetain={handleToggleRetain}
         />
         <RespondedVariantRetainBar
           tabId={activeVariant.tabId}
+          tabLabel={activeVariant.tabLabel}
+          altRank={activeAltRank}
           retainable={activeVariant.cap > 0}
           isSelected={selectedTabId === activeVariant.tabId}
           readOnly={readOnly}
-          onToggle={(on) => {
-            toggleLineRetention(row.id, on, activeBranch);
-            if (on) setBrowseTab(activeVariant.tabId);
-          }}
+          onToggle={(on) => handleToggleRetain(activeVariant.tabId, on)}
         />
       </div>
       <div>

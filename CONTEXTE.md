@@ -41,6 +41,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-16 (suite 3) — Hub demandes : bandeau unifié** :
+- **`RequestUnifiedHubChrome`** : parcours + titre centré + onglets Tableau de bord | Liste dans un seul bandeau ; plus de lien retour annuaire/TDB ni bouton Notifications (pharmacien) dans le hub.
+- Liste : **`HubListScopeCount`** (**X/Y actives**) à côté de **Actives seulement** ; dashboard parcours **Tous** = couleurs charte plateforme (`usePlatformAccent`).
+- **Correctifs preview** : typecheck titres hub **`7df29bf`** ; ligne onglets **Tous** qui descendait — shell sans `p.hero` **`f9b4091`**.
+- Branche **`feature/unified-hubs-footers`**, commit **`f9b4091`** — détail **`CAHIER_DES_CHARGES.md` §10** suite 3, reprise **§13.67**. Footers initiaux déjà sur **`main`** (PR **#379**).
+
 **Mise à jour 2026-06-16 (suite) — Mes produits : onglet Supprimés + restauration** :
 - **Migrations** **`20260830_001`** (lister `archived_hidden` + RPC **`pharmacist_restore_pharmacy_product`**) ; **`20260831_001`** si `20260830` déjà appliquée (filtre RPC Dépubliés ≠ Supprimés).
 - Hub **`/dashboard/pharmacien/mes-produits`** : onglet **Supprimés** (distinct de **Dépubliés**), badge Supprimé, bouton **Restaurer** — commits **`c90c478`**, **`c9bc238`** sur **`feature/whatsapp-m2-lot3-pharmacist`**.
