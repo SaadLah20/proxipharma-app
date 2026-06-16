@@ -53,6 +53,75 @@ function statusBadgeClass(status: CatalogProductReportListRow["status"]): string
   }
 }
 
+function NationalCatalogProductSearchHits({
+  pharmacyId,
+  query,
+  activeReportProductIds,
+  rows,
+  onPickNew,
+  onPickExisting,
+}: {
+  pharmacyId: string;
+  query: string;
+  activeReportProductIds: string[];
+  rows: CatalogProductReportListRow[];
+  onPickNew: (product: { id: string; name: string }) => void;
+  onPickExisting: (reportId: string) => void;
+}) {
+  const [hits, setHits] = useState<{ id: string; name: string }[]>([]);
+  const [busy, setBusy] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void searchPharmacyCatalog(supabase, pharmacyId, query)
+      .then((results) => {
+        if (cancelled) return;
+        setHits(results.filter((h) => h.source === "global").map((h) => ({ id: h.id, name: h.name })));
+      })
+      .catch(() => {
+        if (!cancelled) setHits([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pharmacyId, query]);
+
+  if (busy) return <p className="mt-2 text-xs text-muted-foreground">Recherche…</p>;
+  if (hits.length === 0) return null;
+
+  return (
+    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border/70 p-1">
+      {hits.map((h) => {
+        const already = activeReportProductIds.includes(h.id);
+        return (
+          <li key={h.id}>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
+              onClick={() => {
+                if (already) {
+                  const row = rows.find((r) => r.product_id === h.id);
+                  if (row) onPickExisting(row.id);
+                  return;
+                }
+                onPickNew(h);
+              }}
+            >
+              <span className="min-w-0 truncate font-medium">{h.name}</span>
+              <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+                {already ? "Voir le signalement" : "Signaler"}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function ReportDetailPanel({
   detail,
   busy,
@@ -203,10 +272,11 @@ export function PharmacistCatalogReportsHub() {
   const [detail, setDetail] = useState<CatalogProductReportDetail | null>(null);
   const [editReportId, setEditReportId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchHits, setSearchHits] = useState<{ id: string; name: string }[]>([]);
-  const [searchBusy, setSearchBusy] = useState(false);
   const [createProduct, setCreateProduct] = useState<{ id: string; name: string } | null>(null);
   const [pharmacyId, setPharmacyId] = useState<string | null>(null);
+
+  const trimmedSearch = searchQuery.trim();
+  const searchReady = trimmedSearch.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS && Boolean(pharmacyId);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -259,32 +329,6 @@ export function PharmacistCatalogReportsHub() {
       cancelled = true;
     };
   }, [openReportId]);
-
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (q.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !pharmacyId) {
-      setSearchHits([]);
-      return;
-    }
-    let cancelled = false;
-    setSearchBusy(true);
-    void searchPharmacyCatalog(supabase, pharmacyId, q)
-      .then((hits) => {
-        if (cancelled) return;
-        setSearchHits(
-          hits.filter((h) => h.source === "global").map((h) => ({ id: h.id, name: h.name }))
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setSearchHits([]);
-      })
-      .finally(() => {
-        if (!cancelled) setSearchBusy(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [searchQuery, pharmacyId]);
 
   const activeReportProductIds = useMemo(
     () => rows.filter((r) => r.status !== "closed" && r.status !== "cancelled").map((r) => r.product_id),
@@ -379,34 +423,16 @@ export function PharmacistCatalogReportsHub() {
               className="h-10 w-full rounded-xl border border-border bg-background py-2 pl-10 pr-3 text-sm"
             />
           </div>
-          {searchBusy ? <p className="mt-2 text-xs text-muted-foreground">Recherche…</p> : null}
-          {searchHits.length > 0 ? (
-            <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border/70 p-1">
-              {searchHits.map((h) => {
-                const already = activeReportProductIds.includes(h.id);
-                return (
-                  <li key={h.id}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
-                      onClick={() => {
-                        if (already) {
-                          const row = rows.find((r) => r.product_id === h.id);
-                          if (row) void openDetail(row.id);
-                          return;
-                        }
-                        setCreateProduct(h);
-                      }}
-                    >
-                      <span className="min-w-0 truncate font-medium">{h.name}</span>
-                      <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
-                        {already ? "Voir le signalement" : "Signaler"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+          {searchReady ? (
+            <NationalCatalogProductSearchHits
+              key={`${pharmacyId}-${trimmedSearch}`}
+              pharmacyId={pharmacyId!}
+              query={trimmedSearch}
+              activeReportProductIds={activeReportProductIds}
+              rows={rows}
+              onPickNew={setCreateProduct}
+              onPickExisting={(reportId) => void openDetail(reportId)}
+            />
           ) : null}
         </div>
 

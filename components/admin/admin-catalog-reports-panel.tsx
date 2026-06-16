@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { clsx } from "clsx";
-import { Flag, Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { AdminAccountPageHeader } from "@/components/admin/admin-account-page-header";
 import { catalogProductReportFieldLabelFr } from "@/lib/catalog-product-report-field-labels";
 import {
@@ -43,7 +43,6 @@ function AdminCatalogReportDetail({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     void getAdminCatalogProductReportDetail(supabase, row.id)
       .then((d) => {
         if (!cancelled) setDetail(d);
