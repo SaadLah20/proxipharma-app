@@ -36,7 +36,7 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 |-----|------|
 | `pharmacy_catalog_search` | Recherche unifiée global + privés `active` |
 | `pharmacist_create/update/unpublish/republish_pharmacy_product` | CRUD privé officine |
-| `pharmacist_archive_pharmacy_product` | Masquage « Supprimer » (`archived_hidden`, visible Dépubliés) |
+| `pharmacist_archive_pharmacy_product` | Masquage « Supprimer » → `archived_hidden` (onglet **Supprimés**) |
 | `pharmacist_restore_pharmacy_product` | Restauration supprimé → `active` |
 | `pharmacist_link_manual_line_to_product` | Liaison ligne manuelle patient |
 | `admin_list/enrich/publish_pharmacy_catalog_product` | File admin + publication nationale |

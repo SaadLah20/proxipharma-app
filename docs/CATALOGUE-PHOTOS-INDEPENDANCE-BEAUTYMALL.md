@@ -5,9 +5,9 @@ Guide pour **vous** (non développeur) et pour **un agent Cursor** qui reprend l
 **Contexte (juin 2026)**  
 - Catalogue déjà en base : **~13 651** parapharmacie + **~6 026** médicaments.  
 - **Noms + descriptions** : déjà chez vous (Supabase) — **aucune dépendance BeautyMall**.  
-- **Photos** : encore des **liens** `https://beautymall.ma/wp-content/...` en base (~**12 171** produits).  
-- Script de sauvegarde locale livré : `scripts/download-beautymall-catalog-images.mjs`.  
-- Test pilote : **3 images** déjà dans `catalog/images/` (validation OK).
+- **Photos** : encore des **liens** `https://beautymall.ma/wp-content/...` en base (~**12 171** produits) — **copies locales Phase 1 terminées** (voir bilan ci-dessous).  
+- Script de sauvegarde locale : `scripts/download-beautymall-catalog-images.mjs`.  
+- **Phase 1 exécutée le 2026-06-16** : **11 793** téléchargées + **3** ignorées (pilote) = **11 796** slugs uniques, **0** erreur ; ~**33 min** ; `photo_url` en base **inchangées**.
 
 **Objectif final** : photos hébergées sur **Supabase Storage** (`public-assets/products/{id}/main.*`), plus d’URL BeautyMall en `photo_url`.
 
@@ -18,7 +18,7 @@ Guide pour **vous** (non développeur) et pour **un agent Cursor** qui reprend l
 ```
 Phase 0  [FAIT]     Catalogue + script téléchargement créé
     ↓
-Phase 1  [À FAIRE]  Télécharger ~12 171 images → dossier PC `catalog/images/`
+Phase 1  [FAIT]     Téléchargement local → `catalog/images/` (11 796 slugs, 0 erreur — 2026-06-16)
     ↓
 Phase 2  [À FAIRE]  Vérifier le téléchargement (comptes + échantillon visuel)
     ↓
@@ -42,15 +42,34 @@ Phase 5  [PLUS TARD] Tester preview Vercel + merge PR
 - [x] Script `download-beautymall-catalog-images.mjs` créé  
 - [x] Test dry-run + 3 images réelles OK  
 - [x] `attach-catalog-images.mjs` accepte `--category beautymall_catalog`  
-- [ ] **Téléchargement complet** `catalog/images/` (~12 171 fichiers)  
-- [ ] Vérification post-téléchargement (manifeste + SQL)  
+- [x] **Téléchargement complet** `catalog/images/` — **2026-06-16** : 11 793 OK + 3 ignorés, 0 erreur (11 796 slugs uniques couvrant les 12 171 lignes en base ; 375 doublons de slug)  
+- [ ] Vérification post-téléchargement (manifeste + SQL) — **Phase 2**  
 - [ ] Upload vers Supabase Storage (prod / plan adapté)  
 - [ ] Test preview : photos catalogue patient + pharmacien  
 - [ ] Merge PR → production  
 
 ---
 
-## Phase 1 — Lancer le téléchargement complet
+## Phase 1 — Téléchargement complet local
+
+### Bilan exécution (2026-06-16)
+
+| Indicateur | Valeur |
+|------------|--------|
+| Lignes `photo_url` BeautyMall en base | **12 171** |
+| Slugs uniques (fichiers distincts) | **11 796** |
+| Écart (même image, plusieurs produits) | **375** |
+| Produits sans photo (`beautymall_catalog`) | **1 480** (hors périmètre) |
+| Téléchargées | **11 793** |
+| Ignorées (déjà sur disque) | **3** |
+| Erreurs | **0** |
+| Durée | ~33 min |
+| Journal | `catalog/images/beautymall-download-log.jsonl` |
+| Manifeste | `catalog/images/beautymall-download-manifest.json` |
+
+Supabase Storage et `photo_url` en base : **non modifiés** (URLs BeautyMall toujours actives dans l’app).
+
+### Relancer le téléchargement (si besoin)
 
 ### Ce que vous faites
 

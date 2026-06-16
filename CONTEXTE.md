@@ -41,10 +41,10 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
-**Mise à jour 2026-06-16 (suite) — Mes produits : restaurer les supprimés** :
-- **Migration** **`20260830_001`** : produits « Supprimer » (`archived_hidden`) visibles dans **Dépubliés** ; RPC **`pharmacist_restore_pharmacy_product`** → actif.
-- Hub **`/dashboard/pharmacien/mes-produits`** : onglet **Supprimés** (distinct de Dépubliés), badge Supprimé + bouton **Restaurer**.
-- Ancre migrations **`AGENTS.md`** → **`20260830_001`**.
+**Mise à jour 2026-06-16 (suite) — Mes produits : onglet Supprimés + restauration** :
+- **Migrations** **`20260830_001`** (lister `archived_hidden` + RPC **`pharmacist_restore_pharmacy_product`**) ; **`20260831_001`** si `20260830` déjà appliquée (filtre RPC Dépubliés ≠ Supprimés).
+- Hub **`/dashboard/pharmacien/mes-produits`** : onglet **Supprimés** (distinct de **Dépubliés**), badge Supprimé, bouton **Restaurer** — commits **`c90c478`**, **`c9bc238`** sur **`feature/whatsapp-m2-lot3-pharmacist`**.
+- Ancre migrations **`AGENTS.md`** → **`20260831_001`**.
 
 **Mise à jour 2026-06-16 — réponse pharmacien produits privés / archivés** :
 - **Bug** : réponse demande produits bloquée sur lignes **catalogue privé officine** (rupture marché / indispo) — `market_shortages.product_id` NOT NULL ; erreur dispo générique si proposition officine masquée après reload.
@@ -160,7 +160,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.36** (patient bandeau officine + pharmacien validée/traitée/archives ; voir §10 session **2026-06-03 suite 3**).
 
 **Mise à jour 2026-06-11 — catalogue communautaire (V1)** :
-- **SQL** : **`20260813_001`** … **`20260819_002`** (voir **`supabase/README.md`** ; enum **`archived_hidden`** = run **`20260819_001`** seul puis **`20260819_002`**).
+- **SQL** : **`20260813_001`** … **`20260819_002`**, puis **`20260830_001`** / **`20260831_001`** (Mes produits Supprimés + restauration — voir **`supabase/README.md`** ; enum **`archived_hidden`** = run **`20260819_001`** seul puis **`20260819_002`**).
 - **Pharmacien** : **`/dashboard/pharmacien/mes-produits`** — privé, dépublier, modifier (y compris dépublié), supprimer (masqué), bouton ajout dans recherches dossier.
 - **Patient** : ligne manuelle (demande produits uniquement) ; panier sans PU ; liaison pharmacien → ligne normale.
 - **Admin** : **`/admin/produits-communautaires`** — file, enrichir, publier au catalogue national.
