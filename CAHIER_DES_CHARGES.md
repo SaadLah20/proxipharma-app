@@ -255,7 +255,7 @@ Note:
 
 ### Espace client (vision donnee)
 - Dashboard / annuaire (accueil connecte)
-- **Mes demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/demandes`, filtre `?parcours=`)
+- **Mes demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/demandes`, filtre `?parcours=`, bandeau unifié + compteurs liste)
 - Mes Packs promo
 - Mes pharmacies
 - Liste de souhait
@@ -264,7 +264,7 @@ Note:
 
 ### Espace pharmacien (vision donnee)
 - Tableau de bord compte (`/dashboard/pharmacien`)
-- **Demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/pharmacien/demandes`, filtre `?parcours=`)
+- **Demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/pharmacien/demandes`, filtre `?parcours=`, bandeau unifié + compteurs liste)
 - Reservations packs promo
 - Horaires et garde
 - Produits declares en rupture du marche
@@ -327,7 +327,7 @@ Pourquoi:
 - **Traçabilité fine des anciennes réponses pharma par tour**: pas versionnee automatiquement aujourd hui (`request_snapshots` possible plus tard si litiges/reglementation le demandent — volontairement reporte tant que MVP operationnel prime).
 - **Retrait physique**: vérité fonctionnelle côté **pharmacien** + champ `counter_outcome` lignes puis `completed` RPC `pharmacist_complete_request_after_counter` ; ne plus s appuyer sur un clic patient obsolete `patient_mark_collected`.
 - **`expires_at`** rempli côté app pharmacien lors de la mise en **`responded`** (+7 jours dans l UI actuelle) pour support futur cron `expire_overdue_requests()` (toujours a brancher infra service_role si souhaite).
-- **Hub Mes demandes** (`/dashboard/demandes`) : **hub unifie** des 3 parcours (`product_request`, `prescription`, `free_consultation`) avec onglets **`?parcours=`** (tous / produits / ordonnances / consultations) + tableau de bord 8 statuts + liste filtrable ; anciennes URLs `/dashboard/patient/ordonnances` et `/consultations-libres` redirigent vers ce hub. Peut montrer **plus de lignes** que les derniers envois manuels (seed demo, etc.) — comportement attendu jusqu'à nettoyage données.
+- **Hub Mes demandes** (`/dashboard/demandes`) : **hub unifie** des 3 parcours (`product_request`, `prescription`, `free_consultation`) avec onglets **`?parcours=`** (tous / produits / ordonnances / consultations) + bandeau unifié (titre centré par parcours) + tableau de bord 8 statuts + liste filtrable avec compteur **X/Y actives** ; anciennes URLs `/dashboard/patient/ordonnances` et `/consultations-libres` redirigent vers ce hub. Dashboard **Tous** = couleurs charte plateforme. Peut montrer **plus de lignes** que les derniers envois manuels (seed demo, etc.) — comportement attendu jusqu'à nettoyage données.
 - **Contact patient côté pharmacien** : lecture **nom, WhatsApp, e-mail** via RPC **`SECURITY DEFINER`** — **`pharmacist_patient_contact_for_request(uuid)`** (fiche demande) et **`pharmacist_patient_directory_for_my_pharmacy()`** (hub liste). Migration **`20260503_008`**. Un essai de policy **`profiles`** + sous-requête **`requests`** (**`20260503_007`**) provoquait une **récursion RLS** avec `requests_select_access` : corrigé par **`20260503_009`** (`DROP` policy). **Ne pas réactiver 007** sans refonte ; l’app ne s’appuie pas sur un `SELECT profiles` cross-rôle côté client pour les patients des demandes.
 - **Renvoi liste patient avant réponse pharmacien** : RPC **`patient_resubmit_product_request_after_response`** accepte aussi **`submitted`** et **`in_review`** (**`20260503_006`**), pour permettre au patient d’ajuster la liste tant que la pharmacie n’a pas encore répondu.
 - **Notes par ligne vs conversation dossier** (produits, ordonnance, consultation) : **`client_comment`** / **`pharmacist_comment`** (et note ordonnance / texte consultation) **figées après `confirmed`** (et statuts terminaux). Patient : saisie à l’envoi ou modification **avant réponse** (`submitted`|`in_review`, RPC resubmit). Pharmacien : saisie à la **publication** ou **modification de réponse** (`responded` + mode Modifier). **`request_comments`** (conversation) reste ouverte. Migration **`20260607_001`** + **`lib/request-line-notes-policy.ts`**.
@@ -386,9 +386,55 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-16 (suite 4) — Alternatives : visibilité patient + pharmacien
+
+**Branche** : (lot en cours sur branche feature).
+
+**Patient (`responded`)** — [`patient-responded-line-chooser.tsx`](components/requests/product/patient-responded-line-chooser.tsx) :
+- Onglets : **deux signaux** distincts (consulté vs retenu) ; **case cliquable** sur l’onglet (`aria-pressed`) + barre « Retenir » compacte (`py-2`) en miroir.
+- Pastille **Option consultée / retenue** sur le bloc produit ; tooltip nom produit sur onglets alt.
+- Section **Indisponibles + alternatives** : hint une ligne sous le titre (`respondedBuckets.indispo_with_alts.hint`).
+- i18n FR/AR : `optionViewing`, `optionRetained`, `retainTabAria*`, `retainShortPrincipal/Alt`, `altTab` AR **`بديل {n}`**.
+
+**Pharmacien** — [`pharmacist-line-alternatives-tabs.tsx`](components/pharmacist/pharmacist-line-alternatives-tabs.tsx), [`pharmacist-alternative-line-panel.tsx`](components/pharmacist/pharmacist-alternative-line-panel.tsx), [`page.tsx`](app/dashboard/pharmacien/demandes/[id]/page.tsx) :
+- Onglet alt : coche + bordure emerald si **retenu par le patient** ; `title` = nom produit complet.
+- Panneau alt : fond blanc + **filet gauche teal** (plus de fond teal plein) ; libellé unifié **`Alt. {rank}`** ; badge retenu outline.
+- Vue figée `responded` : **suppression** liste redondante « Alternatives (N) » sous le principal (onglets + panneau suffisent).
+
+**Partagé** : [`lib/variant-tabs-chrome.ts`](lib/variant-tabs-chrome.ts) — coque onglets / barre retain.
+
+**Migrations** : aucune.
+
+**Phrase de reprise** : **§13.68**.
+
+### Session 2026-06-16 (suite 3) — Hub demandes : bandeau unifié + compteurs liste
+
+**Branche** : `feature/unified-hubs-footers` — commits **`5e66139`** (chrome) · **`7df29bf`** (build TS) · **`f9b4091`** (fix layout onglets **Tous**). Lot footers initial mergé **`main`** via PR **#379** (`90893ca`).
+
+**Chrome hub** (patient + pharmacien) — composant **`RequestUnifiedHubChrome`** :
+- Onglets parcours (**`RequestParcoursTabBar`** `variant="embedded"`) + **titre centré** (change avec `?parcours=`) + onglets **Tableau de bord | Liste** dans **un seul bandeau** (moins de hauteur).
+- Titres i18n par parcours : `hub.unifiedHub.patientTitle*` / `pharmacistTitle*` via **`unifiedHubTitleKey`** (`lib/request-hub-parcours.ts`) — rôle app **`pharmacien`** mappé vers clé i18n **`pharmacist`**.
+- Accent bandeau : **sky / amber / violet** par parcours ; **`tous`** = charte plateforme (**`neutral`**, constante **`PLATFORM_HUB_BANNER_SHELL`** dans `request-unified-hub-chrome.tsx` — **ne pas** réutiliser `platformDashboardChrome.hero` qui inclut `p-4`).
+- Conteneur bandeau : **`p-0`** explicite — évite le décalage vertical de la ligne d’onglets parcours au clic **Tous** (preview Vercel).
+- **Retiré** du hub : lien retour annuaire / tableau de bord ; bouton **Notifications** (pharmacien — cloche header + page notifications inchangées).
+
+**Liste** : à côté de **Actives seulement**, compteur **`HubListScopeCount`** — **`X/Y actives`** (actives / total du parcours) ; sans filtre actif : **`affichées/total`** ou **`N au total`** (i18n `hub.listChrome.scopeCount*`).
+
+**Tableau de bord** : onglet parcours **`tous`** → tuiles **`DemandeStatDashboard`** en couleurs **charte Pharmeto** (`usePlatformAccent` sur **`RequestKindHubDashboard`**, `kindId` absent) — plus le bleu produits par défaut.
+
+**Correctifs CI / preview** :
+- **`7df29bf`** : typecheck Next.js — `unifiedHubTitleKey("pharmacien")` ≠ clé objet `pharmacist`.
+- **`f9b4091`** : onglets parcours qui « descendaient » sur **Tous** (padding résiduel `p.hero`).
+
+**Fichiers clés** : `components/requests/hub/request-unified-hub-chrome.tsx`, `request-parcours-tab-bar.tsx`, `request-kind-hub-dashboard.tsx`, `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx`, `lib/request-hub-parcours.ts`, i18n `hub.unifiedHub` + `hub.listChrome`.
+
+**Migrations** : aucune.
+
+**Phrase de reprise** : **§13.67**.
+
 ### Session 2026-06-16 (suite 2) — Hubs unifiés + footers patient/pharmacien
 
-**Branche** : `feature/unified-hubs-footers` — commit **`90893ca`** (PR vers `main`).
+**Branche** : `feature/unified-hubs-footers` — commits **`90893ca`**, **`c40ee9d`** ; affinage bandeau **`5e66139`** (voir **suite 3**).
 
 **Navigation principale (barre basse)** — remplace les 4 onglets « un parcours » :
 - **Patient** : Annuaire (`/`) · Mes demandes (`/dashboard/demandes`) · Mes Packs · Mes pharmacies.
@@ -398,7 +444,7 @@ git checkout pilote-stable-2026-05-24
 
 **Hub unifié** (patient + pharmacien) :
 - Une requête charge les 3 `request_type` ; filtre URL **`parcours`** = `tous` (défaut) | `produits` | `ordonnances` | `consultations`.
-- **`RequestParcoursTabBar`** au-dessus du bandeau existant (Tableau de bord | Liste) ; pastilles = demandes **actives** par parcours.
+- **`RequestParcoursTabBar`** intégré au bandeau hub (**`RequestUnifiedHubChrome`** depuis suite 3) ; pastilles = demandes **actives** par parcours.
 - Mode **Tous** : pastille type parcours sur les cartes (à gauche de la référence) ; tuiles dashboard conservent `parcours` au clic liste.
 - Titres : **Mes demandes** (patient) / **Demandes** (pharmacien).
 
@@ -2947,9 +2993,13 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
+### 13.68) Phrase de reprise (alternatives visibilité patient/pharmacien — juin 2026)
+
+**« Pharmeto — reprise alternatives visibilité. **Pas de migration**. **Patient `responded`** : onglets Ta demande / Alt. — case **cliquable** + barre Retenir compacte ; pastille Option consultée/retenue ; hint section Indisponibles+alternatives ; i18n FR/AR (`demandes.responded`, `respondedBuckets.indispo_with_alts.hint`). **Pharmacien** : onglet alt avec coche si retenu patient ; panneau alt filet teal (fond blanc) ; vue figée sans liste dupliquée. **Fichiers** : `patient-responded-line-chooser.tsx`, `pharmacist-line-alternatives-tabs.tsx`, `pharmacist-alternative-line-panel.tsx`, `lib/variant-tabs-chrome.ts`. Je te donne la tâche ou les retours preview. »**
+
 ### 13.67) Phrase de reprise (hubs unifiés + footers — juin 2026)
 
-**« Pharmeto (`pharmeto.ma`) — reprise hubs unifiés + footers. **Branche / PR** : `feature/unified-hubs-footers` (commit **`90893ca`**). **Pas de migration**. **Patient** : footer Annuaire · Mes demandes · Mes Packs · Mes pharmacies ; hub **`/dashboard/demandes`** avec onglets parcours (`?parcours=tous|produits|ordonnances|consultations`). **Pharmacien** : footer Tableau de bord · Demandes · Packs · Horaires ; hub **`/dashboard/pharmacien/demandes`** (même filtre parcours). **Fichiers** : `lib/request-hub-parcours.ts`, `lib/platform-bottom-nav.ts`, `request-parcours-tab-bar.tsx`, hubs `*demandes-hub.tsx`. Anciennes URLs ordonnances/consultations → redirect. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto (`pharmeto.ma`) — reprise hubs unifiés + footers. **Branche / PR** : `feature/unified-hubs-footers` (dernier commit **`f9b4091`** ; lot footers **`90893ca`** déjà sur `main` via PR **#379**). **Pas de migration**. **Patient** : footer Annuaire · Mes demandes · Mes Packs · Mes pharmacies ; hub **`/dashboard/demandes`** — bandeau unifié (`RequestUnifiedHubChrome`) : onglets parcours `?parcours=tous|produits|ordonnances|consultations`, titre centré par parcours, Tableau de bord | Liste ; liste = **X/Y actives** à côté du filtre ; dashboard **Tous** = couleurs charte Pharmeto ; ligne onglets parcours stable (pas de `p.hero` / padding interne). **Pharmacien** : footer Tableau de bord · Demandes · Packs · Horaires ; hub **`/dashboard/pharmacien/demandes`** (même chrome, sans lien retour ni bouton Notifications dans le bandeau). **Fichiers** : `lib/request-hub-parcours.ts` (`unifiedHubTitleKey`), `request-unified-hub-chrome.tsx`, `request-parcours-tab-bar.tsx`, hubs `*demandes-hub.tsx`, `lib/platform-bottom-nav.ts`. Anciennes URLs ordonnances/consultations → redirect. Je te donne la tâche ou les retours preview. »**
 
 ### 13.66) Phrase de reprise (WhatsApp M2 lot 3 pharmacien — juin 2026)
 
@@ -2957,7 +3007,7 @@ Voir **§13.37**.
 
 ### 13.65) Phrase de reprise (inbox + WhatsApp lot 2 — juin 2026)
 
-**« Pharmeto (`pharmeto.ma`) — reprise inbox + WhatsApp lot 2. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** (labels FR/AR inbox). **WhatsApp prod** : lot 2 mergé (PR **#369**) ; lot 3 sur branche **`feature/whatsapp-m2-lot3-pharmacist`**. **Inbox** : onglets Alertes/Messages ; cloche marque alertes lues à l’ouverture ; hubs pharmacien (**`PharmacistWorkflowHubHeader`**). Je te donne la tâche ou les retours preview. »**
+**« Pharmeto (`pharmeto.ma`) — reprise inbox + WhatsApp lot 2. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** (labels FR/AR inbox). **WhatsApp prod** : lot 2 mergé (PR **#369**) ; lot 3 sur branche **`feature/whatsapp-m2-lot3-pharmacist`**. **Inbox** : onglets Alertes/Messages ; cloche marque alertes lues à l’ouverture. Hub **Demandes** pharmacien : depuis juin 2026 suite 3 → **`RequestUnifiedHubChrome`** (plus **`PharmacistWorkflowHubHeader`** sur `/dashboard/pharmacien/demandes`). Je te donne la tâche ou les retours preview. »**
 
 ### 13.64) Phrase de reprise (expiration passage traité — juin 2026)
 

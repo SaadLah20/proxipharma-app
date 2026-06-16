@@ -9,3 +9,9 @@ export function pharmacistAltTabLabel(productName: string | null | undefined, ra
   if (!n) return `Alt. ${rank}`;
   return n.length > 18 ? `${n.slice(0, 16)}…` : n;
 }
+
+/** Attribut title HTML — nom produit complet ou repli Alt. N. */
+export function pharmacistAltTabTitle(productName: string | null | undefined, rank: number): string {
+  const n = productName?.trim();
+  return n || `Alt. ${rank}`;
+}

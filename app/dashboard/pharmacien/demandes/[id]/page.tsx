@@ -288,6 +288,7 @@ import {
 import {
   PHARMACIST_ALT_TAB_ADD,
   pharmacistAltTabLabel,
+  pharmacistAltTabTitle,
   type PharmacistLineAltTabId,
 } from "@/lib/pharmacist-line-alt-tabs";
 import {
@@ -6969,9 +6970,14 @@ export default function PharmacienDemandeDetailPage() {
                               requestLineProductEmbed(alt)?.name ?? null,
                               altIndex + 1
                             ),
+                            title: pharmacistAltTabTitle(
+                              requestLineProductEmbed(alt)?.name ?? null,
+                              altIndex + 1
+                            ),
                           })),
                         ]}
                         activeTab={activeAltTab}
+                        chosenAltId={row.patient_chosen_alternative_id ?? null}
                         onTabChange={(tabId) => {
                           setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: tabId }));
                           if (tabId === PHARMACIST_ALT_TAB_ADD) {
@@ -7501,53 +7507,6 @@ export default function PharmacienDemandeDetailPage() {
                           </span>
                         ) : null}
                       </div>
-                      {respondedFrozenView && rowAlts.length > 0 ? (
-                        <div className="mt-2 border-t border-teal-200/50 pt-2">
-                          <p className="text-[9px] font-bold uppercase tracking-wide text-teal-900">
-                            Alternatives ({rowAlts.length})
-                          </p>
-                          <ul className="mt-1 space-y-1">
-                            {rowAlts.map((alt) => {
-                              const altEmbed = requestLineProductEmbed(alt);
-                              const an = altEmbed?.name?.trim() || "Alternative";
-                              const aq = clampAlternativeAvailableQty(
-                                Number(alt.available_qty ?? row.requested_qty)
-                              );
-                              const ast = alt.availability_status ?? "—";
-                              const alab = availabilityStatusFr[ast] ?? ast;
-                              const aeta =
-                                ast === "to_order" && alt.expected_availability_date?.trim()
-                                  ? formatDateShortFr(alt.expected_availability_date.trim())
-                                  : null;
-                              const ap = catalogPriceMadLabel(
-                                pricingConfig,
-                                altEmbed as ProdEmbedDb | null,
-                                requestLineCatalogProductId(alt),
-                                alt.unit_price
-                              );
-                              return (
-                                <li
-                                  key={alt.id}
-                                  className="rounded-lg border border-teal-200/60 bg-white/80 px-2 py-1 text-[10px] text-teal-950"
-                                >
-                                  <span className="font-semibold">{an}</span>
-                                  <span className="mt-0.5 block text-[9px] text-teal-800/90">
-                                    {alab} · qté <strong>{aq}</strong>
-                                    {aeta ? (
-                                      <>
-                                        {" "}
-                                        · réception <strong>{aeta}</strong>
-                                      </>
-                                    ) : null}
-                                    {" · "}
-                                    {ap}
-                                  </span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ) : null}
                     </div>
                   )}
                   </>
