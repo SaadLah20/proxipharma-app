@@ -6,15 +6,20 @@ import { clsx } from "clsx";
 import { Loader2, RefreshCw, Search } from "lucide-react";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { CatalogProductReportModal } from "@/components/pharmacist/catalog-product-report-modal";
+import { PharmacistReportedFieldReviewCard } from "@/components/admin/catalog-national-product-form-fields";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import {
+  catalogReportModalCancelBtnClassName,
+  catalogReportModalFooterClassName,
+  catalogReportModalPrimaryBtnClassName,
+} from "@/lib/catalog-national-product-form";
 import {
   cancelCatalogProductReport,
   getPharmacistCatalogProductReportDetail,
   listPharmacistCatalogProductReports,
   respondCatalogProductReport,
 } from "@/lib/catalog-product-report-api";
-import { catalogProductReportFieldLabelFr } from "@/lib/catalog-product-report-field-labels";
 import {
   catalogProductReportEventLabelFr,
   catalogProductReportStatusLabelFr,
@@ -25,7 +30,6 @@ import {
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { PRODUCT_CATALOG_SEARCH_MIN_CHARS } from "@/lib/product-catalog-search";
 import { searchPharmacyCatalog } from "@/lib/pharmacy-catalog-search";
-import { uiActionBtnModalOutline, uiActionBtnModalPrimary } from "@/lib/ui-action-buttons";
 import { useCatalogProductReportRefresh } from "@/lib/catalog-product-report-status-provider";
 import { supabase } from "@/lib/supabase";
 
@@ -158,7 +162,7 @@ function ReportDetailPanel({
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:px-4">
           {detail.latest_admin_message ? (
             <div className="rounded-lg border border-sky-200/80 bg-sky-50/70 px-3 py-2.5 text-xs text-sky-950">
               <p className="font-semibold">Message Pharmeto</p>
@@ -169,13 +173,7 @@ function ReportDetailPanel({
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Champs signalés</p>
             {detail.fields.map((f) => (
-              <div key={f.field_key} className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-xs">
-                <p className="font-semibold text-foreground">{catalogProductReportFieldLabelFr(f.field_key)}</p>
-                {f.current_value ? (
-                  <p className="mt-0.5 text-muted-foreground line-through">{f.current_value}</p>
-                ) : null}
-                <p className="mt-1 font-medium text-foreground">{f.suggested_value}</p>
-              </div>
+              <PharmacistReportedFieldReviewCard key={f.field_key} field={f} />
             ))}
           </div>
 
@@ -207,45 +205,45 @@ function ReportDetailPanel({
           ) : null}
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-2 border-t border-border px-4 py-3">
-          <button type="button" className={uiActionBtnModalOutline()} disabled={busy} onClick={onClose}>
+        <div className={catalogReportModalFooterClassName()}>
+          <button type="button" className={catalogReportModalCancelBtnClassName()} disabled={busy} onClick={onClose}>
             Fermer
           </button>
           {canEdit ? (
-            <button type="button" className={uiActionBtnModalOutline()} disabled={busy} onClick={onEdit}>
+            <button type="button" className={catalogReportModalCancelBtnClassName()} disabled={busy} onClick={onEdit}>
               Modifier
             </button>
           ) : null}
           {canCancel ? (
             <button
               type="button"
-              className="rounded-lg border border-destructive/40 px-3 py-2 text-xs font-semibold text-destructive"
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-destructive/40 px-3 text-xs font-semibold text-destructive sm:h-8"
               disabled={busy}
               onClick={onCancel}
             >
-              Annuler le signalement
+              Annuler
             </button>
           ) : null}
           {canRespond ? (
             <>
               {!rejectOpen ? (
-                <button type="button" className={uiActionBtnModalPrimary()} disabled={busy} onClick={onAccept}>
-                  Valider le traitement
-                </button>
-              ) : null}
-              {!rejectOpen ? (
-                <button
-                  type="button"
-                  className={uiActionBtnModalOutline()}
-                  disabled={busy}
-                  onClick={() => setRejectOpen(true)}
-                >
-                  Non, préciser
-                </button>
+                <>
+                  <button type="button" className={catalogReportModalPrimaryBtnClassName()} disabled={busy} onClick={onAccept}>
+                    Valider
+                  </button>
+                  <button
+                    type="button"
+                    className={catalogReportModalCancelBtnClassName()}
+                    disabled={busy}
+                    onClick={() => setRejectOpen(true)}
+                  >
+                    Non
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
-                  className={uiActionBtnModalPrimary()}
+                  className={catalogReportModalPrimaryBtnClassName()}
                   disabled={busy || !rejectMessage.trim()}
                   onClick={() => onReject(rejectMessage.trim())}
                 >
