@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import { ProductPhotoComingSoonFrame } from "@/components/products/product-photo-coming-soon-frame";
+import { externalCatalogImageProps } from "@/lib/storage-media";
 
 export type CatalogProductPhotoPreview = {
   url?: string | null;
@@ -86,6 +87,7 @@ export function CatalogProductPhotoThumb({
         height={size}
         className={clsx("size-full", objectFit === "contain" ? "object-contain p-0.5" : "object-cover", imageClassName)}
         unoptimized
+        referrerPolicy="no-referrer"
       />
     </button>
   );
@@ -200,6 +202,7 @@ export function PatientProductPhotoPreviewModal({
                   src={imageUrl!}
                   alt=""
                   className="max-h-full max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
+                  {...externalCatalogImageProps}
                 />
               </div>
             )}

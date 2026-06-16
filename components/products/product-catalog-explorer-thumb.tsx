@@ -3,6 +3,7 @@
 import { clsx } from "clsx";
 import { Package, Pill } from "lucide-react";
 import { isMedicamentProductType } from "@/components/products/product-brand-label";
+import { externalCatalogImageProps } from "@/lib/storage-media";
 
 /** Vignette explorateur catalogue : photo si dispo, sinon icône para ou médicament — toujours cliquable. */
 export function ProductCatalogExplorerThumb({
@@ -39,7 +40,12 @@ export function ProductCatalogExplorerThumb({
       aria-label={`Voir la fiche produit · ${productName}`}
     >
       {url ? (
-        <img src={url} alt="" className="pointer-events-none h-full w-full object-cover" />
+        <img
+          src={url}
+          alt=""
+          className="pointer-events-none h-full w-full object-cover"
+          {...externalCatalogImageProps}
+        />
       ) : (
         <span
           className={clsx(
