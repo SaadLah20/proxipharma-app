@@ -137,7 +137,8 @@ export function unifiedHubTitleKey(
   parcours: RequestHubParcoursSlug,
   role: "patient" | "pharmacien",
 ): UnifiedHubTitleKey {
-  return PARCOURS_TITLE_KEYS[parcours][role];
+  const roleKey = role === "pharmacien" ? "pharmacist" : "patient";
+  return PARCOURS_TITLE_KEYS[parcours][roleKey];
 }
 
 export function countActiveRequestsByParcours<T extends { request_type: string; status: string }>(
