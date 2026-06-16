@@ -151,14 +151,28 @@ export async function getAdminCatalogProductReportDetail(
   return data as AdminCatalogProductReportDetail;
 }
 
+export async function saveAdminCatalogProductFromReport(
+  supabase: SupabaseClient,
+  reportId: string,
+  product: Record<string, string | null>
+): Promise<void> {
+  const { error } = await supabase.rpc("admin_save_catalog_product_from_report", {
+    p_report_id: reportId,
+    p_product: product,
+  });
+
+  if (error) throw error;
+}
+
 export async function resolveAdminCatalogProductReport(
   supabase: SupabaseClient,
   reportId: string,
-  message?: string
+  options?: { message?: string; product?: Record<string, string | null> }
 ): Promise<void> {
   const { error } = await supabase.rpc("admin_resolve_catalog_product_report", {
     p_report_id: reportId,
-    p_message: message ?? null,
+    p_message: options?.message ?? null,
+    p_product: options?.product ?? null,
   });
 
   if (error) throw error;

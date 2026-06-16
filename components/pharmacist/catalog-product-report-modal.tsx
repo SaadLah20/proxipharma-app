@@ -21,7 +21,11 @@ import {
   type CatalogProductReportFieldKey,
   type CatalogProductReportSnapshot,
 } from "@/lib/catalog-product-report-types";
-import { uiActionBtnModalOutline, uiActionBtnModalPrimary } from "@/lib/ui-action-buttons";
+import {
+  catalogReportModalCancelBtnClassName,
+  catalogReportModalFooterClassName,
+  catalogReportModalPrimaryBtnClassName,
+} from "@/lib/catalog-national-product-form";
 import { supabase } from "@/lib/supabase";
 
 type FieldDraft = {
@@ -147,7 +151,7 @@ function CatalogProductReportForm({
   };
 
   return (
-    <div className="relative z-10 flex max-h-[92svh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
+    <div className="relative z-10 flex max-h-[92svh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-w-lg sm:rounded-2xl">
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <h2 id="catalog-report-modal-title" className="text-sm font-bold text-foreground">
@@ -235,17 +239,17 @@ function CatalogProductReportForm({
         {error ? <p className="mt-3 text-xs font-medium text-destructive">{error}</p> : null}
       </div>
 
-      <div className="flex shrink-0 gap-2 border-t border-border px-4 py-3">
-        <button type="button" className={uiActionBtnModalOutline()} disabled={busy} onClick={onClose}>
+      <div className={catalogReportModalFooterClassName()}>
+        <button type="button" className={catalogReportModalCancelBtnClassName()} disabled={busy} onClick={onClose}>
           Annuler
         </button>
         <button
           type="button"
-          className={uiActionBtnModalPrimary()}
+          className={catalogReportModalPrimaryBtnClassName()}
           disabled={busy || loading || reportableRows.length === 0}
           onClick={() => void handleSubmit()}
         >
-          {busy ? "Envoi…" : reportId ? "Enregistrer" : "Envoyer le signalement"}
+          {busy ? "Envoi…" : reportId ? "Enregistrer" : "Envoyer"}
         </button>
       </div>
     </div>

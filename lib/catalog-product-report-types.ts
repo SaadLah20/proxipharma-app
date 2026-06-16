@@ -25,6 +25,7 @@ export type CatalogProductReportFieldInput = {
   field_key: CatalogProductReportFieldKey;
   current_value: string | null;
   suggested_value: string;
+  applied_value?: string | null;
 };
 
 export type CatalogProductReportSnapshot = Record<string, unknown> & {
@@ -91,6 +92,8 @@ export type AdminCatalogProductReportDetail = {
   product_id: string;
   status: CatalogProductReportStatus;
   product_snapshot: CatalogProductReportSnapshot;
+  live_product: CatalogProductReportSnapshot;
+  reported_field_keys: CatalogProductReportFieldKey[];
   fields: CatalogProductReportFieldInput[];
   events: CatalogProductReportEvent[];
   reported_by: string;
@@ -127,6 +130,8 @@ export function catalogProductReportEventLabelFr(eventType: string): string {
       return "Signalement modifié";
     case "cancelled":
       return "Signalement annulé";
+    case "admin_saved":
+      return "Produit enregistré (admin)";
     case "admin_resolved":
       return "Traité par Pharmeto";
     case "pharmacist_accepted":
