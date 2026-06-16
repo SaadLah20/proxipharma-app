@@ -146,7 +146,7 @@ import {
   PatientPharmacyQuickContact,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
-import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import { resolvePublicMediaUrl, externalCatalogImageProps } from "@/lib/storage-media";
 import {
   clearPatientDemandeCatalogueReturnEdit,
   clearPatientDemandeProduitsDraft,
@@ -4971,7 +4971,7 @@ export function PatientProductRequestActions({
                         >
                           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
                             {l.photo_url ? (
-                              <img src={l.photo_url} alt="" className="size-full object-cover" />
+                              <img src={l.photo_url} alt="" className="size-full object-cover" {...externalCatalogImageProps} />
                             ) : (
                               <div className="flex size-full items-center justify-center">
                                 <Package className="size-5 text-slate-400" aria-hidden />

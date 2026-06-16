@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { Package, Pill } from "lucide-react";
 import { isMedicamentProductType } from "@/components/products/product-brand-label";
 import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
+import { externalCatalogImageProps } from "@/lib/storage-media";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 
 /** Vignette ligne dossier (patient / pharmacien) — toujours cliquable si `onPhotoPreview` est fourni. */
@@ -54,7 +55,7 @@ export function ProductLinePhotoThumb({
   return (
     <div className={clsx(className, "overflow-hidden")}>
       {url ? (
-        <img src={url} alt="" className="h-full w-full object-cover" />
+        <img src={url} alt="" className="h-full w-full object-cover" {...externalCatalogImageProps} />
       ) : (
         <span
           className={clsx(

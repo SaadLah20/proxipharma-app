@@ -81,6 +81,11 @@ export function resolvePublicMediaUrl(stored: string | null | undefined): string
   return publicStorageObjectUrl(t);
 }
 
+/** Évite le blocage hotlink BeautyMall quand l’image est embarquée depuis pharmeto.ma. */
+export const externalCatalogImageProps = {
+  referrerPolicy: "no-referrer",
+} as const;
+
 type ProductPhotoEmbed = { photo_url?: string | null };
 
 /** Produit embarqué (join `products`) avec URL photo catalogue résolue pour `<img src>`. */
