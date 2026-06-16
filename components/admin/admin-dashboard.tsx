@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Building2,
   ClipboardList,
+  Flag,
   Mail,
   Package,
   RefreshCw,
@@ -94,6 +95,13 @@ function AdminAlerts({ snapshot }: { snapshot: AdminDashboardSnapshot }) {
       tone: "amber",
       text: `${snapshot.pendingCommunityProducts} produit(s) communautaire(s) en attente de publication.`,
       href: "/admin/produits-communautaires",
+    });
+  }
+  if (snapshot.pendingCatalogReports > 0) {
+    alerts.push({
+      tone: "amber",
+      text: `${snapshot.pendingCatalogReports} signalement(s) catalogue en attente de traitement.`,
+      href: "/admin/produits-signales",
     });
   }
   if (snapshot.overdueRespondedCount > 0) {
@@ -234,6 +242,14 @@ export function AdminDashboard() {
               hint="Produits officine en attente de publication"
               href="/admin/produits-communautaires"
               tone="emerald"
+            />
+            <AdminKpiCard
+              icon={Flag}
+              label="Produits signalés"
+              value={snapshot.pendingCatalogReports}
+              hint="Signalements catalogue en attente"
+              href="/admin/produits-signales"
+              tone="amber"
             />
             <AdminKpiCard
               icon={Mail}

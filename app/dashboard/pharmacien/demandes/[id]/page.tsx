@@ -63,6 +63,8 @@ import {
 } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { useSyncBottomNavDossierTab } from "@/lib/platform-bottom-nav-dossier-tab";
+import { useCatalogProductReportRefresh } from "@/lib/catalog-product-report-status-provider";
+import { useCatalogProductReportStatus } from "@/lib/use-catalog-product-report-status";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import {
   requestUsesProductLineWorkflow,
@@ -242,6 +244,7 @@ import {
   pharmacistProductSectionTitleClass,
 } from "@/lib/pharmacist-product-dossier-shell";
 import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
+import { CatalogProductReportAction } from "@/components/pharmacist/catalog-product-report-action";
 import { PharmacistManualRequestLineCard, PharmacistManualLinkDraftBanner } from "@/components/pharmacist/pharmacist-manual-request-line-card";
 import { PharmacistAlternativeLinePanel } from "@/components/pharmacist/pharmacist-alternative-line-panel";
 import {
@@ -2210,6 +2213,19 @@ export default function PharmacienDemandeDetailPage() {
     draft,
     catalogBlockRequestStatus,
   ]);
+
+  const { refreshKey: catalogReportRefreshKey } = useCatalogProductReportRefresh();
+  const catalogReportProductIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const h of [...propVisibleHits, ...altVisibleHits, ...ordonnanceAltVisibleHits]) {
+      if (h.source === "global") ids.add(h.id);
+    }
+    return [...ids];
+  }, [propVisibleHits, altVisibleHits, ordonnanceAltVisibleHits]);
+  const { getActiveReport: getCatalogReportForProduct } = useCatalogProductReportStatus(
+    catalogReportProductIds,
+    catalogReportRefreshKey
+  );
 
   const ordonnanceLineCount = useMemo(() => {
     if (!request || request.request_type !== "prescription") return 0;
@@ -6987,6 +7003,7 @@ export default function PharmacienDemandeDetailPage() {
                           onClose={() => resetAltPicker(row.id)}
                           pricingConfig={pricingConfig}
                           onPhotoPreview={openProductPhotoPreview}
+                          getActiveReport={getCatalogReportForProduct}
                           onAddCustomProduct={() => {
                             setCatalogAddPrefill(altQuery.trim());
                             setCatalogAddAfterCreate(() => (hit: ProductCatalogHit) => {
@@ -7885,52 +7902,62 @@ export default function PharmacienDemandeDetailPage() {
                           !propExpectedDate.trim();
                         return (
                         <li key={unifiedCatalogHitKey(h)}>
-                          <button
-                            type="button"
-                            disabled={propBusy || Boolean(needsEtaBeforePick)}
-                            onClick={() =>
-                              void insertPharmacistProposedLine(h, {
-                                lineKind: isPrescription ? "proposed" : undefined,
-                                qty: isProductRequestSent
-                                  ? 1
-                                  : Math.min(
-                                      PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
-                                      Math.max(1, parseInt(propQty, 10) || 1)
-                                    ),
-                              })
-                            }
-                            className="flex w-full touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <div
-                              className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50"
-                              onClick={(e) => e.stopPropagation()}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={propBusy || Boolean(needsEtaBeforePick)}
+                              onClick={() =>
+                                void insertPharmacistProposedLine(h, {
+                                  lineKind: isPrescription ? "proposed" : undefined,
+                                  qty: isProductRequestSent
+                                    ? 1
+                                    : Math.min(
+                                        PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+                                        Math.max(1, parseInt(propQty, 10) || 1)
+                                      ),
+                                })
+                              }
+                              className="flex min-w-0 flex-1 touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              <PharmacistProductPhotoThumb
-                                photoUrl={h.photo_url}
-                                title={h.name}
-                                brand={h.brand}
-                                productType={h.product_type}
-                                descriptionHtml={h.full_description}
-                                onPhotoPreview={openProductPhotoPreview}
-                                catalogExplorerPreview
-                                iconClassName="text-violet-500/80"
+                              <div
+                                className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <PharmacistProductPhotoThumb
+                                  photoUrl={h.photo_url}
+                                  title={h.name}
+                                  brand={h.brand}
+                                  productType={h.product_type}
+                                  descriptionHtml={h.full_description}
+                                  onPhotoPreview={openProductPhotoPreview}
+                                  catalogExplorerPreview
+                                  iconClassName="text-violet-500/80"
+                                />
+                              </div>
+                              <span className="min-w-0 flex-1">
+                                <span className="block font-medium text-foreground">{h.name}</span>
+                                <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
+                                {h.source === "pharmacy" ? (
+                                  <span className="mt-0.5 block text-[10px] font-medium text-violet-700">
+                                    Mon catalogue
+                                  </span>
+                                ) : null}
+                                {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
+                                  <span className="mt-0.5 block text-[11px] font-medium text-teal-800">
+                                    PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </button>
+                            {h.source === "global" ? (
+                              <CatalogProductReportAction
+                                productId={h.id}
+                                productName={h.name}
+                                activeReport={getCatalogReportForProduct(h.id)}
+                                variant="icon"
                               />
-                            </div>
-                            <span className="min-w-0 flex-1">
-                              <span className="block font-medium text-foreground">{h.name}</span>
-                              <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
-                              {h.source === "pharmacy" ? (
-                                <span className="mt-0.5 block text-[10px] font-medium text-violet-700">
-                                  Mon catalogue
-                                </span>
-                              ) : null}
-                              {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
-                                <span className="mt-0.5 block text-[11px] font-medium text-teal-800">
-                                  PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
-                                </span>
-                              ) : null}
-                            </span>
-                          </button>
+                            ) : null}
+                          </div>
                         </li>
                         );
                       })}

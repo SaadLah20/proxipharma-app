@@ -3,7 +3,9 @@
 import { Package, Search } from "lucide-react";
 import { CatalogProductAddButton } from "@/components/catalog/pharmacy-catalog-product-form-modal";
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import { CatalogProductReportAction } from "@/components/pharmacist/catalog-product-report-action";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
+import type { ActiveCatalogProductReportSummary } from "@/lib/catalog-product-report-types";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
@@ -25,6 +27,7 @@ export function PharmacistAltCatalogPicker({
   pricingConfig,
   onPhotoPreview,
   onAddCustomProduct,
+  getActiveReport,
 }: {
   query: string;
   onQueryChange: (q: string) => void;
@@ -36,6 +39,7 @@ export function PharmacistAltCatalogPicker({
   pricingConfig: PharmacyPricingConfig | null;
   onPhotoPreview?: ProductPhotoPreviewHandler;
   onAddCustomProduct?: () => void;
+  getActiveReport?: (productId: string) => ActiveCatalogProductReportSummary | null;
 }) {
   return (
     <div className="mx-2 mb-2 flex max-h-[min(70svh,28rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
@@ -70,37 +74,47 @@ export function PharmacistAltCatalogPicker({
         <ul className="min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35 [-webkit-overflow-scrolling:touch]">
           {hits.map((h) => (
             <li key={unifiedCatalogHitKey(h)}>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onSelect(h)}
-                className="flex w-full touch-manipulation items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition hover:bg-muted/65 active:bg-muted/80 disabled:opacity-50"
-              >
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/60 bg-teal-50/50">
-                  <PharmacistProductPhotoThumb
-                    photoUrl={h.photo_url}
-                    title={h.name}
-                    brand={h.brand}
-                    productType={h.product_type}
-                    descriptionHtml={h.full_description}
-                    onPhotoPreview={onPhotoPreview}
-                    catalogExplorerPreview
-                    iconClassName="text-teal-600/70"
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onSelect(h)}
+                  className="flex min-w-0 flex-1 touch-manipulation items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition hover:bg-muted/65 active:bg-muted/80 disabled:opacity-50"
+                >
+                  <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/60 bg-teal-50/50">
+                    <PharmacistProductPhotoThumb
+                      photoUrl={h.photo_url}
+                      title={h.name}
+                      brand={h.brand}
+                      productType={h.product_type}
+                      descriptionHtml={h.full_description}
+                      onPhotoPreview={onPhotoPreview}
+                      catalogExplorerPreview
+                      iconClassName="text-teal-600/70"
+                    />
+                  </div>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
+                    <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
+                    {h.source === "pharmacy" ? (
+                      <span className="mt-0.5 block text-[10px] font-medium text-teal-800">Mon catalogue</span>
+                    ) : null}
+                    {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
+                      <span className="mt-0.5 block text-[10px] font-semibold text-primary">
+                        PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+                {h.source === "global" ? (
+                  <CatalogProductReportAction
+                    productId={h.id}
+                    productName={h.name}
+                    activeReport={getActiveReport?.(h.id) ?? null}
+                    variant="icon"
                   />
-                </div>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
-                  <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
-                  {h.source === "pharmacy" ? (
-                    <span className="mt-0.5 block text-[10px] font-medium text-teal-800">Mon catalogue</span>
-                  ) : null}
-                  {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
-                    <span className="mt-0.5 block text-[10px] font-semibold text-primary">
-                      PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
