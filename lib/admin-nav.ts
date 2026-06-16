@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, LayoutDashboard, Package, Store } from "lucide-react";
+import { ClipboardList, Flag, LayoutDashboard, Package, Store } from "lucide-react";
 
-export type AdminSectionId = "dashboard" | "officines" | "demandes" | "catalogue";
+export type AdminSectionId = "dashboard" | "officines" | "demandes" | "catalogue" | "signalements";
 
 export type AdminSectionNavItem = {
   id: AdminSectionId;
@@ -23,6 +23,13 @@ export const ADMIN_SECTION_NAV: AdminSectionNavItem[] = [
     icon: Package,
     matchPrefix: "/admin/produits-communautaires",
   },
+  {
+    id: "signalements",
+    href: "/admin/produits-signales",
+    label: "Produits signalés",
+    icon: Flag,
+    matchPrefix: "/admin/produits-signales",
+  },
 ];
 
 /** Onglet actif selon le pathname (dashboard = /admin exact). */
@@ -30,6 +37,7 @@ export function activeAdminSectionId(pathname: string): AdminSectionId {
   if (pathname.startsWith("/admin/officines")) return "officines";
   if (pathname.startsWith("/admin/demandes")) return "demandes";
   if (pathname.startsWith("/admin/produits-communautaires")) return "catalogue";
+  if (pathname.startsWith("/admin/produits-signales")) return "signalements";
   if (pathname === "/admin" || pathname === "/admin/") return "dashboard";
   return "dashboard";
 }

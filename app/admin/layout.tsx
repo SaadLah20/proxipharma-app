@@ -9,7 +9,10 @@ import { supabase } from "@/lib/supabase";
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() ?? "/admin";
-  const maxWidthClass = pathname.startsWith("/admin/produits-communautaires") ? "max-w-6xl" : "max-w-4xl";
+  const maxWidthClass =
+    pathname.startsWith("/admin/produits-communautaires") || pathname.startsWith("/admin/produits-signales")
+      ? "max-w-6xl"
+      : "max-w-4xl";
   const [ready, setReady] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
