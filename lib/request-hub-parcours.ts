@@ -117,6 +117,30 @@ export function filterRowsByParcours<T extends { request_type: string }>(
   return rows.filter((r) => r.request_type === kindId);
 }
 
+export function countRowsInParcours<T extends { request_type: string }>(
+  rows: T[],
+  parcours: RequestHubParcoursSlug,
+): number {
+  return filterRowsByParcours(rows, parcours).length;
+}
+
+const PARCOURS_TITLE_KEYS = {
+  tous: { patient: "patientTitleTous", pharmacist: "pharmacistTitleTous" },
+  produits: { patient: "patientTitleProducts", pharmacist: "pharmacistTitleProducts" },
+  ordonnances: { patient: "patientTitlePrescriptions", pharmacist: "pharmacistTitlePrescriptions" },
+  consultations: { patient: "patientTitleConsultations", pharmacist: "pharmacistTitleConsultations" },
+} as const;
+
+export type UnifiedHubTitleKey = (typeof PARCOURS_TITLE_KEYS)[RequestHubParcoursSlug][keyof (typeof PARCOURS_TITLE_KEYS)[RequestHubParcoursSlug]];
+
+export function unifiedHubTitleKey(
+  parcours: RequestHubParcoursSlug,
+  role: "patient" | "pharmacien",
+): UnifiedHubTitleKey {
+  const roleKey = role === "pharmacien" ? "pharmacist" : "patient";
+  return PARCOURS_TITLE_KEYS[parcours][roleKey];
+}
+
 export function countActiveRequestsByParcours<T extends { request_type: string; status: string }>(
   rows: T[],
   role: "patient" | "pharmacien",

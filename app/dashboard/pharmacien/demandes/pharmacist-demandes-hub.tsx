@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { PharmacistWorkflowHubHeader } from "@/components/pharmacist/pharmacist-workflow-hub-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
-import { RequestParcoursTabBar } from "@/components/requests/hub/request-parcours-tab-bar";
+import {
+  HubListScopeCount,
+  parcoursToWorkflowAccent,
+  RequestUnifiedHubChrome,
+} from "@/components/requests/hub/request-unified-hub-chrome";
 import {
   type HubTab,
   type PharmacistRequestRow,
@@ -24,8 +26,6 @@ import {
   hubListFiltersPanelExpanded,
   hubListHasManualFilters,
 } from "@/lib/hub-list-filter-chrome";
-import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
-import { patientHubDashboardAccent } from "@/lib/patient-workflow-hub-dashboard-ui";
 import { PageShell } from "@/components/ui/compact-shell";
 import {
   bucketForStatusParam,
@@ -46,6 +46,7 @@ import {
   filterRowsByParcours,
   parseParcoursParam,
   type RequestHubParcoursSlug,
+  unifiedHubTitleKey,
   UNIFIED_PHARMACIST_HUB_PATH,
 } from "@/lib/request-hub-parcours";
 import { supabase } from "@/lib/supabase";
@@ -369,8 +370,11 @@ export function PharmacistUnifiedRequestsHub() {
   };
 
   const filterBtn = uiActionBtnFilterToggle();
+  const hubAccent = parcoursToWorkflowAccent(parcours);
+  const hubTitle = tUnified(unifiedHubTitleKey(parcours, "pharmacien"));
+  const totalInParcours = displayRows.length;
+  const activeInParcours = parcoursCounts[parcours] ?? 0;
   const listTabLabel = listTabLabelForParcours(parcours);
-  const hubAccent = patientHubDashboardAccent(effectiveKindId, "pharmacien") ?? "sky";
   const emptyCopy = emptyCopyForParcours(parcours);
   const showParcoursLabel = parcours === "tous";
 
@@ -385,32 +389,25 @@ export function PharmacistUnifiedRequestsHub() {
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/dashboard/pharmacien" className={p.backLink}>
-          ← Tableau de bord
-        </Link>
-        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
       </PageShell>
     );
   }
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-3">
-      <RequestParcoursTabBar active={parcours} counts={parcoursCounts} onChange={setParcours} />
-
-      <PharmacistWorkflowHubHeader
-        title={tUnified("pharmacistTitle")}
-        accent={hubAccent}
+      <RequestUnifiedHubChrome
+        parcours={parcours}
+        parcoursCounts={parcoursCounts}
+        onParcoursChange={setParcours}
+        title={hubTitle}
+        workflowAccent={hubAccent}
         tab={tab}
         onTab={setTab}
         tabLabels={{
           dashboard: tList("dashboardTab"),
           list: listTabLabel,
         }}
-        trailing={
-          <Link href="/dashboard/notifications" className={p.headerAction}>
-            Notifications
-          </Link>
-        }
       />
 
       {error ? (
@@ -432,21 +429,31 @@ export function PharmacistUnifiedRequestsHub() {
               basePath={hubPath}
               unreadById={unreadById}
               preserveSearchParams={preserveSearchParams}
+              usePlatformAccent={parcours === "tous"}
             />
           )}
         </>
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
-              <input
-                type="checkbox"
-                checked={activeOnly}
-                onChange={(e) => setActiveOnly(e.target.checked)}
-                className="rounded border-input"
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  className="rounded border-input"
+                />
+                {tList("activeOnly")}
+              </label>
+              <HubListScopeCount
+                activeCount={activeInParcours}
+                totalCount={totalInParcours}
+                filteredCount={filteredSorted.length}
+                activeOnly={activeOnly}
+                hasListFilters={listHasActiveFilters}
               />
-              {tList("activeOnly")}
-            </label>
+            </div>
             <button
               type="button"
               onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}

@@ -14,6 +14,7 @@ export function RequestKindHubDashboard({
   rows,
   basePath,
   preserveSearchParams,
+  usePlatformAccent = false,
 }: {
   kindId: RequestKindId;
   role: "patient" | "pharmacien";
@@ -21,6 +22,8 @@ export function RequestKindHubDashboard({
   basePath: string;
   unreadById?: Record<string, boolean>;
   preserveSearchParams?: Record<string, string>;
+  /** Charte globale Pharmeto (onglet Tous) au lieu de la couleur parcours produits. */
+  usePlatformAccent?: boolean;
 }) {
   const tHub = useTranslations("hub");
   const baseBuckets =
@@ -42,7 +45,7 @@ export function RequestKindHubDashboard({
       density="compact"
       dashboardTitle={chrome.title}
       bucketGroups={statBucketGroupsForRole(role)}
-      kindId={kindId}
+      kindId={usePlatformAccent ? undefined : kindId}
       viewerRole={role}
       preserveSearchParams={preserveSearchParams}
     />

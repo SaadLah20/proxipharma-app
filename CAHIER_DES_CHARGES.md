@@ -254,29 +254,24 @@ Note:
 ## 6) Espaces applicatifs cibles (vision)
 
 ### Espace client (vision donnee)
-- Dashboard
+- Dashboard / annuaire (accueil connecte)
+- **Mes demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/demandes`, filtre `?parcours=`)
+- Mes Packs promo
 - Mes pharmacies
 - Liste de souhait
-- Mes ordonnances
-- Mes demandes de produits
-- Mes consultations libres
 - Parametres
 - Notifications
 
 ### Espace pharmacien (vision donnee)
-- Dashboard
-- Ordonnances
-- Demandes de produits
+- Tableau de bord compte (`/dashboard/pharmacien`)
+- **Demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/pharmacien/demandes`, filtre `?parcours=`)
+- Reservations packs promo
+- Horaires et garde
 - Produits declares en rupture du marche
-- Parametrage horaires et garde
-- Ma fiche
-- Mes clients
+- Ma fiche / clients / Mes produits / offres promo
 - Notifications
 - Produits commandes
-- Reviews
-- Signalements
 - Parametres
-- Promos et offres
 
 ## 7) Perimetre produit - Sprint 2 (proposition de travail)
 
@@ -332,7 +327,7 @@ Pourquoi:
 - **Traçabilité fine des anciennes réponses pharma par tour**: pas versionnee automatiquement aujourd hui (`request_snapshots` possible plus tard si litiges/reglementation le demandent — volontairement reporte tant que MVP operationnel prime).
 - **Retrait physique**: vérité fonctionnelle côté **pharmacien** + champ `counter_outcome` lignes puis `completed` RPC `pharmacist_complete_request_after_counter` ; ne plus s appuyer sur un clic patient obsolete `patient_mark_collected`.
 - **`expires_at`** rempli côté app pharmacien lors de la mise en **`responded`** (+7 jours dans l UI actuelle) pour support futur cron `expire_overdue_requests()` (toujours a brancher infra service_role si souhaite).
-- **Hub Mes demandes** (`/dashboard/demandes`, onglets + filtres) peut montrer **plus de lignes** que les derniers envois manuels (seed demo migration `20260501_002` avec tag `SEED_DEMO_WORKFLOW_v1`, ou anciens tests meme `patient_id`) — comportement attendu jusqu a nettoyage donnees ; le tableau de bord `/dashboard` ne fait plus office de liste exhaustive (CTA vers le hub).
+- **Hub Mes demandes** (`/dashboard/demandes`) : **hub unifie** des 3 parcours (`product_request`, `prescription`, `free_consultation`) avec onglets **`?parcours=`** (tous / produits / ordonnances / consultations) + tableau de bord 8 statuts + liste filtrable ; anciennes URLs `/dashboard/patient/ordonnances` et `/consultations-libres` redirigent vers ce hub. Peut montrer **plus de lignes** que les derniers envois manuels (seed demo, etc.) — comportement attendu jusqu'à nettoyage données.
 - **Contact patient côté pharmacien** : lecture **nom, WhatsApp, e-mail** via RPC **`SECURITY DEFINER`** — **`pharmacist_patient_contact_for_request(uuid)`** (fiche demande) et **`pharmacist_patient_directory_for_my_pharmacy()`** (hub liste). Migration **`20260503_008`**. Un essai de policy **`profiles`** + sous-requête **`requests`** (**`20260503_007`**) provoquait une **récursion RLS** avec `requests_select_access` : corrigé par **`20260503_009`** (`DROP` policy). **Ne pas réactiver 007** sans refonte ; l’app ne s’appuie pas sur un `SELECT profiles` cross-rôle côté client pour les patients des demandes.
 - **Renvoi liste patient avant réponse pharmacien** : RPC **`patient_resubmit_product_request_after_response`** accepte aussi **`submitted`** et **`in_review`** (**`20260503_006`**), pour permettre au patient d’ajuster la liste tant que la pharmacie n’a pas encore répondu.
 - **Notes par ligne vs conversation dossier** (produits, ordonnance, consultation) : **`client_comment`** / **`pharmacist_comment`** (et note ordonnance / texte consultation) **figées après `confirmed`** (et statuts terminaux). Patient : saisie à l’envoi ou modification **avant réponse** (`submitted`|`in_review`, RPC resubmit). Pharmacien : saisie à la **publication** ou **modification de réponse** (`responded` + mode Modifier). **`request_comments`** (conversation) reste ouverte. Migration **`20260607_001`** + **`lib/request-line-notes-policy.ts`**.
@@ -390,6 +385,30 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+### Session 2026-06-16 (suite 2) — Hubs unifiés + footers patient/pharmacien
+
+**Branche** : `feature/unified-hubs-footers` — commit **`90893ca`** (PR vers `main`).
+
+**Navigation principale (barre basse)** — remplace les 4 onglets « un parcours » :
+- **Patient** : Annuaire (`/`) · Mes demandes (`/dashboard/demandes`) · Mes Packs · Mes pharmacies.
+- **Pharmacien** : Tableau de bord · Demandes (`/dashboard/pharmacien/demandes`) · Réservations Packs · Horaires et garde.
+
+**Menus compte (header)** allégés : patient = Paramètres seul ; pharmacien = sans Tableau de bord ni Horaires (désormais footer).
+
+**Hub unifié** (patient + pharmacien) :
+- Une requête charge les 3 `request_type` ; filtre URL **`parcours`** = `tous` (défaut) | `produits` | `ordonnances` | `consultations`.
+- **`RequestParcoursTabBar`** au-dessus du bandeau existant (Tableau de bord | Liste) ; pastilles = demandes **actives** par parcours.
+- Mode **Tous** : pastille type parcours sur les cartes (à gauche de la référence) ; tuiles dashboard conservent `parcours` au clic liste.
+- Titres : **Mes demandes** (patient) / **Demandes** (pharmacien).
+
+**Redirections** : `/dashboard/patient/ordonnances`, `/consultations-libres`, équivalents pharmacien → hub unifié + `?parcours=…`.
+
+**Fichiers clés** : `lib/request-hub-parcours.ts`, `lib/platform-bottom-nav.ts`, `components/requests/hub/request-parcours-tab-bar.tsx`, `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx`, `platform-header.tsx`, i18n `hub.parcours` + `header.bottomNav`.
+
+**Migrations** : aucune.
+
+**Phrase de reprise** : **§13.67**.
 
 ### Session 2026-06-16 (suite) — Mes produits : onglet Supprimés + restauration
 
@@ -2927,6 +2946,10 @@ Voir **§13.37**.
 **Phrase de reprise (étape 6 / fin pilote i18n patient)** :
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
+
+### 13.67) Phrase de reprise (hubs unifiés + footers — juin 2026)
+
+**« Pharmeto (`pharmeto.ma`) — reprise hubs unifiés + footers. **Branche / PR** : `feature/unified-hubs-footers` (commit **`90893ca`**). **Pas de migration**. **Patient** : footer Annuaire · Mes demandes · Mes Packs · Mes pharmacies ; hub **`/dashboard/demandes`** avec onglets parcours (`?parcours=tous|produits|ordonnances|consultations`). **Pharmacien** : footer Tableau de bord · Demandes · Packs · Horaires ; hub **`/dashboard/pharmacien/demandes`** (même filtre parcours). **Fichiers** : `lib/request-hub-parcours.ts`, `lib/platform-bottom-nav.ts`, `request-parcours-tab-bar.tsx`, hubs `*demandes-hub.tsx`. Anciennes URLs ordonnances/consultations → redirect. Je te donne la tâche ou les retours preview. »**
 
 ### 13.66) Phrase de reprise (WhatsApp M2 lot 3 pharmacien — juin 2026)
 
