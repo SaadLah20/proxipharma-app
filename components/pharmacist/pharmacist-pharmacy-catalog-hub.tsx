@@ -34,12 +34,8 @@ function unitPriceLabel(row: PharmacyCatalogProductRow): string {
   return row.price_pph != null ? formatPriceDh(Number(row.price_pph)) : "—";
 }
 
-function isDepublishedStatus(status: PharmacyCatalogProductStatus): boolean {
-  return status === "unpublished" || status === "archived_hidden";
-}
-
 function pharmacistHubStatusLabel(status: PharmacyCatalogProductStatus): string {
-  if (status === "archived_hidden") return "Dépublié";
+  if (status === "archived_hidden") return "Supprimé";
   return pharmacyCatalogStatusLabelFr(status);
 }
 
@@ -88,7 +84,6 @@ export function PharmacistPharmacyCatalogHub() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
-    if (filter === "unpublished") return rows.filter((r) => isDepublishedStatus(r.status));
     return rows.filter((r) => r.status === filter);
   }, [rows, filter]);
 
@@ -134,7 +129,7 @@ export function PharmacistPharmacyCatalogHub() {
   const handleArchive = async (row: PharmacyCatalogProductRow) => {
     if (
       !window.confirm(
-        `Supprimer « ${row.name} » de votre catalogue ?\n\nLe produit apparaîtra dans « Dépubliés » et pourra être restauré. Il restera visible dans vos dossiers déjà envoyés.`
+        `Supprimer « ${row.name} » de votre catalogue ?\n\nLe produit apparaîtra dans « Supprimés » et pourra être restauré. Il restera visible dans vos dossiers déjà envoyés.`
       )
     ) {
       return;
@@ -155,6 +150,7 @@ export function PharmacistPharmacyCatalogHub() {
     { id: "all", label: "Tous" },
     { id: "active", label: "Actifs" },
     { id: "unpublished", label: "Dépubliés" },
+    { id: "archived_hidden", label: "Supprimés" },
     { id: "archived_published", label: "Archivés (national)" },
   ];
 
@@ -218,13 +214,15 @@ export function PharmacistPharmacyCatalogHub() {
             <CompactCardBody className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
               <Package className="size-8 opacity-40" aria-hidden />
               <p>Aucun produit dans cette vue.</p>
-              <button
-                type="button"
-                className="text-xs font-semibold text-primary"
-                onClick={() => setAddOpen(true)}
-              >
-                Ajouter votre premier produit
-              </button>
+              {filter === "all" || filter === "active" ? (
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-primary"
+                  onClick={() => setAddOpen(true)}
+                >
+                  Ajouter votre premier produit
+                </button>
+              ) : null}
             </CompactCardBody>
           </CompactCard>
         ) : (
@@ -242,7 +240,8 @@ export function PharmacistPharmacyCatalogHub() {
                     className={clsx(
                       "mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
                       row.status === "active" && "bg-emerald-100 text-emerald-900",
-                      isDepublishedStatus(row.status) && "bg-amber-100 text-amber-900",
+                      row.status === "unpublished" && "bg-amber-100 text-amber-900",
+                      row.status === "archived_hidden" && "bg-rose-100 text-rose-900",
                       row.status === "archived_published" && "bg-slate-200 text-slate-800"
                     )}
                   >
