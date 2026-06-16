@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import { Loader2, Package, PackagePlus, RefreshCw } from "lucide-react";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
+import { CatalogProductReportAction } from "@/components/pharmacist/catalog-product-report-action";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import {
@@ -24,6 +25,8 @@ import {
 } from "@/lib/pharmacy-catalog-types";
 import { supabase } from "@/lib/supabase";
 import { formatPriceDh } from "@/lib/product-price";
+import { useCatalogProductReportRefresh } from "@/lib/catalog-product-report-status-provider";
+import { useCatalogProductReportStatus } from "@/lib/use-catalog-product-report-status";
 
 type StatusFilter = "all" | PharmacyCatalogProductStatus;
 
@@ -86,6 +89,16 @@ export function PharmacistPharmacyCatalogHub() {
     if (filter === "all") return rows;
     return rows.filter((r) => r.status === filter);
   }, [rows, filter]);
+
+  const { refreshKey } = useCatalogProductReportRefresh();
+  const reportProductIds = useMemo(
+    () =>
+      rows
+        .filter((r) => r.status === "archived_published" && r.promoted_product_id)
+        .map((r) => r.promoted_product_id as string),
+    [rows]
+  );
+  const { getActiveReport } = useCatalogProductReportStatus(reportProductIds, refreshKey);
 
   const handleUnpublish = async (row: PharmacyCatalogProductRow) => {
     setActionBusyId(row.id);
@@ -299,9 +312,17 @@ export function PharmacistPharmacyCatalogHub() {
                     </button>
                   ) : null}
                   {row.status === "archived_published" && row.promoted_product_id ? (
-                    <span className="self-center text-[10px] text-muted-foreground">
-                      Géré par le catalogue national
-                    </span>
+                    <>
+                      <span className="self-center text-[10px] text-muted-foreground sm:mr-1">
+                        Catalogue national
+                      </span>
+                      <CatalogProductReportAction
+                        productId={row.promoted_product_id}
+                        productName={row.name}
+                        activeReport={getActiveReport(row.promoted_product_id)}
+                        variant="pill"
+                      />
+                    </>
                   ) : null}
                 </div>
               </CompactCardBody>

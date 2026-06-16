@@ -16,6 +16,7 @@ import {
   Phone,
   RefreshCw,
   Settings,
+  Star,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -522,6 +523,7 @@ export function PharmacistDashboard() {
                 { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ClipboardList },
                 { href: "/dashboard/pharmacien/ruptures-marche", label: "Ruptures marché", icon: AlertCircle },
                 { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
+                { href: "/dashboard/pharmacien/avis-patients", label: "Avis patients", icon: Star },
                 { href: "/dashboard/pharmacien/visites-interactions", label: "Journal visites", icon: Eye },
                 { href: "/dashboard/pharmacien/parametres", label: "Mes paramètres", icon: Settings },
               ].map(({ href, label, icon: Icon }) => (

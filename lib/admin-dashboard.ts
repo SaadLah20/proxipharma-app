@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { countPendingCommunityCatalogProducts } from "@/lib/admin-community-catalog-api";
+import { countOpenAdminCatalogProductReports } from "@/lib/catalog-product-report-api";
 import { loadAdminEmailQueueStats } from "@/lib/admin-email-queue";
 
 export const ADMIN_ACTIVE_REQUEST_STATUSES = ["submitted", "in_review", "responded", "confirmed"] as const;
@@ -18,6 +19,7 @@ export type AdminDashboardSnapshot = {
   publicListedCount: number;
   activeRequestCount: number;
   pendingCommunityProducts: number;
+  pendingCatalogReports: number;
   emailPending: number;
   emailFailed: number;
   emailSent24h: number;
@@ -45,6 +47,7 @@ export async function loadAdminDashboardSnapshot(supabase: SupabaseClient): Prom
     overdueRespondedRes,
     recentRes,
     pendingCommunity,
+    pendingCatalogReports,
     emailStats,
   ] = await Promise.all([
     supabase.from("pharmacies").select("*", { count: "exact", head: true }),
@@ -65,6 +68,7 @@ export async function loadAdminDashboardSnapshot(supabase: SupabaseClient): Prom
       .order("created_at", { ascending: false })
       .limit(5),
     countPendingCommunityCatalogProducts(supabase).catch(() => 0),
+    countOpenAdminCatalogProductReports(supabase).catch(() => 0),
     loadAdminEmailQueueStats(supabase),
   ]);
 
@@ -75,6 +79,7 @@ export async function loadAdminDashboardSnapshot(supabase: SupabaseClient): Prom
     publicListedCount: publicListedRes.count ?? 0,
     activeRequestCount: activeRequestsRes.count ?? 0,
     pendingCommunityProducts: pendingCommunity,
+    pendingCatalogReports,
     emailPending: emailStats.pending,
     emailFailed: emailStats.failed,
     emailSent24h: emailStats.sent24h,
