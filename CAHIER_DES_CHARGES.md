@@ -394,7 +394,7 @@ git checkout pilote-stable-2026-05-24
 - Titres **14px** (`text-sm font-bold`) ; barre d’en-tête **fond neutre** (`bg-card`) — **sans** teinte `bg-sky-50/20` / `bg-teal-50/25` sur le patient.
 - **Filet gauche** coloré conservé (indication discrète déjà en place) ; **hauteur inchangée** (`py-1.5`, une ligne).
 - Chrome partagé **`lib/patient-dossier-bucket-section-chrome.ts`** ; composants **`PatientRespondedBucketSection`**, **`PatientValidatedBucketSection`**, **`PatientClosedArchiveBucketSection`**, **`PatientArchiveCollapsibleSection`** + summaries repliés dans **`patient-product-request-actions.tsx`**.
-- **Pharmacien** : barres teintées et typo **12–13px** inchangées (`audience="pharmacien"`).
+- **Pharmacien** : **même chrome** en-tête que patient (titres 14px, barre neutre + filet gauche) via **`audience="pharmacien"`** sur les mêmes composants.
 
 **Migrations** : aucune.
 
@@ -3059,9 +3059,9 @@ Voir **§13.37**.
 
 **« Pharmeto — reprise menu profil pharmacien. **Pas de migration**. **Branche** **`feature/pharmacist-menu-restructure`** (commit **`543c760`**). **Menu** `pharmacienNavMenu` : sections **Produits** (commandés, rupture, mes produits, signalés), **Officine** (clients, avis, ma fiche, horaires-garde), **Packs promo** (offres, réservations) ; liens pricing / notifications / paramètres. **Visites et interactions** hors menu — accès TDB zone Visibilité (**Journal complet** → `/dashboard/pharmacien/visites-interactions`). **Eyebrows** hubs + **Paramètres** alignés. **Fichiers** : `platform-header.tsx`, hubs `pharmacist-*`, `pharmacist-settings-page.tsx`. Je te donne la tâche ou les retours preview. »**
 
-### 13.70) Phrase de reprise (titres sections dossier patient — juin 2026)
+### 13.70) Phrase de reprise (titres sections dossier patient + pharmacien — juin 2026)
 
-**« Pharmeto — reprise visibilité titres sections dossier patient. **Pas de migration**. **Branche** **`feature/pharmacist-dashboard-refonte`** (commit **`12a170e`**). **Patient** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** + **`PatientArchiveCollapsibleSection`**. **Pharmacien** : style barre teintée inchangé. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto — reprise visibilité titres sections dossier. **Pas de migration**. **Branche** **`feature/pharmacist-dashboard-refonte`**. **Patient et pharmacien** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** + **`PatientArchiveCollapsibleSection`**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.69) Phrase de reprise (tableau de bord pharmacien refonte — juin 2026)
 

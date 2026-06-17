@@ -12,12 +12,10 @@ import {
   patientDossierBucketHeaderPaddingClass,
   patientDossierBucketHeaderShellForPatient,
   patientDossierBucketTitleClass,
-  patientDossierBucketTitlePharmacistClass,
 } from "@/lib/patient-dossier-bucket-section-chrome";
 import {
   type PatientRespondedBucketId,
   patientRespondedBucketAccentTextClass,
-  patientRespondedBucketCountBadgeClass,
   patientRespondedBucketHeaderBarClass,
 } from "@/lib/patient-responded-line-buckets";
 
@@ -43,13 +41,9 @@ export function PatientRespondedBucketSection({ bucketId, count, audience = "pat
   const accentText = patientRespondedBucketAccentTextClass(bucketId);
   const ariaKey = isPharmacienCopyAudience(audience) ? "ariaPharmacist" : "ariaPatient";
   const hint = bucketId === "indispo_with_alts" ? t("indispo_with_alts.hint") : null;
-  const isPharmacist = isPharmacienCopyAudience(audience);
-  const headerBarClass = isPharmacist
-    ? patientRespondedBucketHeaderBarClass(bucketId)
-    : patientDossierBucketHeaderShellForPatient(patientRespondedBucketHeaderBarClass(bucketId));
-  const countBadgeClass = isPharmacist
-    ? patientRespondedBucketCountBadgeClass(bucketId)
-    : patientDossierBucketCountBadgeClass;
+  const headerBarClass = patientDossierBucketHeaderShellForPatient(
+    patientRespondedBucketHeaderBarClass(bucketId),
+  );
 
   return (
     <section className="w-full min-w-0 space-y-1" aria-label={t(`${bucketId}.${ariaKey}`)}>
@@ -62,13 +56,11 @@ export function PatientRespondedBucketSection({ bucketId, count, audience = "pat
       >
         <div className="flex min-w-0 items-center gap-2">
           <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-          <h4 className={isPharmacist ? patientDossierBucketTitlePharmacistClass : patientDossierBucketTitleClass}>
-            {title}
-          </h4>
+          <h4 className={patientDossierBucketTitleClass}>{title}</h4>
           <span
             className={clsx(
               "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
-              countBadgeClass,
+              patientDossierBucketCountBadgeClass,
             )}
           >
             {count}

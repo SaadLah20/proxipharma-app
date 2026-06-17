@@ -11,14 +11,12 @@ import {
   patientDossierBucketHeaderPaddingClass,
   patientDossierBucketHeaderShellForPatient,
   patientDossierBucketTitleClass,
-  patientDossierBucketTitlePharmacistClass,
 } from "@/lib/patient-dossier-bucket-section-chrome";
 import {
   type PatientValidatedBucketId,
   patientValidatedBucketAccentTextClass,
   patientValidatedBucketAriaTitleFr,
   patientValidatedBucketAriaTitleI18n,
-  patientValidatedBucketCountBadgeClass,
   patientValidatedBucketHeaderBarClass,
   patientValidatedBucketTitleFr,
   patientValidatedBucketTitleI18n,
@@ -61,12 +59,9 @@ export function PatientValidatedBucketSection({
       : patientValidatedBucketAriaTitleI18n(tDemandes, bucketId, isTreatedView);
   const accentText = patientValidatedBucketAccentTextClass(bucketId);
   const isPharmacist = audience === "pharmacien";
-  const headerBarClass = isPharmacist
-    ? patientValidatedBucketHeaderBarClass(bucketId)
-    : patientDossierBucketHeaderShellForPatient(patientValidatedBucketHeaderBarClass(bucketId));
-  const countBadgeClass = isPharmacist
-    ? patientValidatedBucketCountBadgeClass()
-    : patientDossierBucketCountBadgeClass;
+  const headerBarClass = patientDossierBucketHeaderShellForPatient(
+    patientValidatedBucketHeaderBarClass(bucketId),
+  );
 
   return (
     <section
@@ -76,14 +71,12 @@ export function PatientValidatedBucketSection({
       <div
         className={clsx(
           "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg",
-          isPharmacist ? "px-3 py-2" : patientDossierBucketHeaderPaddingClass,
+          patientDossierBucketHeaderPaddingClass,
           headerBarClass,
         )}
       >
         <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-        <h4 className={isPharmacist ? patientDossierBucketTitlePharmacistClass : patientDossierBucketTitleClass}>
-          {title}
-        </h4>
+        <h4 className={patientDossierBucketTitleClass}>{title}</h4>
         {subtotalLabel ? (
           <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground">
             {subtotalLabel}
@@ -92,7 +85,7 @@ export function PatientValidatedBucketSection({
         <span
           className={clsx(
             "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
-            countBadgeClass,
+            patientDossierBucketCountBadgeClass,
           )}
         >
           {count}
