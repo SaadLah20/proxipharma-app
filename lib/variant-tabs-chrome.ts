@@ -54,6 +54,23 @@ export function variantRetainBarLabelClass(isSelected: boolean): string {
   );
 }
 
+/** Bouton « Retenir » vertical sous la vignette (ligne sans onglets alternative). */
+export function variantCompactRetainButtonShellClass(isSelected: boolean): string {
+  return cn(
+    "flex w-full max-w-[4.25rem] flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1 transition",
+    isSelected
+      ? "border-emerald-500/50 bg-emerald-50/55 ring-1 ring-emerald-500/15"
+      : "border-emerald-500/22 bg-emerald-50/30 hover:border-emerald-500/38 hover:bg-emerald-50/50"
+  );
+}
+
+export function variantCompactRetainButtonLabelClass(isSelected: boolean): string {
+  return cn(
+    "text-[10px] font-bold leading-none",
+    isSelected ? "text-emerald-800" : "text-foreground"
+  );
+}
+
 /** Largeur relative : onglet consulté un peu plus large (libellé complet lisible). */
 export function variantTabFlexClass(isViewing: boolean, crowded: boolean): string {
   if (!crowded) {
