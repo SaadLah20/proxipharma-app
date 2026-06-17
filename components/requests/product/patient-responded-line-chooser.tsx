@@ -408,7 +408,7 @@ function RespondedVariantRetainBar({
     return (
       <div className={retainBarShell}>
         {isSelected ? (
-          <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+          <Check className="size-3.5 shrink-0 text-emerald-600/90" strokeWidth={3} aria-hidden />
         ) : (
           <span className={closedBoxClass} aria-hidden />
         )}
@@ -426,7 +426,7 @@ function RespondedVariantRetainBar({
       onClick={() => onToggle(!isSelected)}
     >
       {isSelected ? (
-        <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+        <Check className="size-3.5 shrink-0 text-emerald-600/90" strokeWidth={3} aria-hidden />
       ) : (
         <span className={closedBoxClass} aria-hidden />
       )}

@@ -40,17 +40,17 @@ export const VARIANT_TAB_CHECKBOX_PAD = "flex shrink-0 items-center py-1 ps-2 pe
 /** Barre « retenir » compacte (patient). */
 export function variantRetainBarShellClass(isSelected: boolean): string {
   return cn(
-    "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 transition",
+    "flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1 transition",
     isSelected
-      ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
-      : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
+      ? "border-emerald-500/50 bg-emerald-50/55 ring-1 ring-emerald-500/15"
+      : "border-emerald-500/22 bg-emerald-50/30 hover:border-emerald-500/38 hover:bg-emerald-50/50"
   );
 }
 
 export function variantRetainBarLabelClass(isSelected: boolean): string {
   return cn(
-    "text-[11px] font-bold leading-snug sm:text-[12px]",
-    isSelected ? "text-emerald-900" : "text-foreground"
+    "text-[11px] font-bold leading-none sm:text-[12px]",
+    isSelected ? "text-emerald-800" : "text-foreground"
   );
 }
 

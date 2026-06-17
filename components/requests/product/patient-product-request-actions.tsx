@@ -473,11 +473,11 @@ export function PatientValidatedCompactLineCard({
 
           <div
             className={cn(
-              "flex w-full items-end justify-between gap-3 leading-none",
+              "flex w-full items-end justify-between gap-2 leading-none",
               withdrawnGrey && "opacity-85"
             )}
           >
-            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+            <div className="flex min-w-0 flex-1 items-end gap-3">
               <ProductRequestLinePrices
                 unitPrice={unitMad}
                 totalValue={
@@ -488,6 +488,7 @@ export function PatientValidatedCompactLineCard({
                 <ProductRequestLineQtyReadonly
                   qty={displayQty}
                   lineAccent={patientWorkflowLineAccent(requestType) ?? "sky"}
+                  compact
                 />
               ) : (
                 <ProductRequestLineQtyInline qty={displayQty} />
