@@ -1180,8 +1180,10 @@ function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): Phar
   for (const row of items) {
     const f = draft[row.id];
     if (!f) continue;
-    const newQtyNum = Number(f.available_qty);
-    const oldQty = row.available_qty;
+    const newQtyNum = row.is_selected_by_patient
+      ? draftValidatedQtyForSave(f, row)
+      : Number(f.available_qty);
+    const oldQty = row.is_selected_by_patient ? postConfirmValidatedQtyBase(row) : row.available_qty;
     const newAvail = f.availability_status;
     const oldAvail = row.availability_status ?? null;
     if (oldQty === newQtyNum && oldAvail === newAvail) continue;
@@ -1670,10 +1672,10 @@ function buildSupplyStructuralAmends(
     const persisted = supplyRowPersistedSupplyFields(row);
     const persistedSelected = postConfirmValidatedQtyBase(row);
     const draftSelected = draftValidatedQtyForSave(f, row);
-    const persistedQtyForAmend =
-      isPharmacistProposedRow(row) && row.is_selected_by_patient
-        ? persistedSelected
-        : persisted.available_qty;
+    /* Ligne retenue post-validation : baseline = qté validée patient (`selected_qty`), pas l’offre `available_qty`. */
+    const persistedQtyForAmend = row.is_selected_by_patient
+      ? persistedSelected
+      : persisted.available_qty;
     const qtyChanged = persistedQtyForAmend !== (payload.available_qty ?? null);
     const selectedQtyChanged =
       row.is_selected_by_patient && !f.withdrawn_after_confirm && persistedSelected !== draftSelected;
@@ -1697,7 +1699,7 @@ function buildSupplyStructuralAmends(
       if (selectedQtyChanged) {
         bits.push(`quantité validée ${persistedSelected} → ${draftSelected}`);
       } else if (qtyChanged) {
-        bits.push(`quantité officine ${persisted.available_qty ?? "—"} → ${payload.available_qty}`);
+        bits.push(`quantité officine ${persistedQtyForAmend ?? "—"} → ${payload.available_qty}`);
       }
       if (priceChanged) bits.push("prix unitaire");
       if (dateChanged) bits.push("date de disponibilité");
