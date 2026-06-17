@@ -106,6 +106,7 @@ export const demandesAr = {
     retainBar: "الاحتفاظ بهذا البديل",
     receptionDateTbc: "تاريخ الاستلام يُؤكَّد لاحقاً",
     altTab: "بديل {n}",
+    altTabShort: "ب.{n}",
     browseHint: "راجع الخيارات ثم اختر ما تريد الاحتفاظ به",
     optionViewing: "خيار معروض",
     optionRetained: "خيار مُختار",

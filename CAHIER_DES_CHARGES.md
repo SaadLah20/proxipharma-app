@@ -391,10 +391,11 @@ git checkout pilote-stable-2026-05-24
 **Branche** : (lot en cours sur branche feature).
 
 **Patient (`responded`)** — [`patient-responded-line-chooser.tsx`](components/requests/product/patient-responded-line-chooser.tsx) :
-- Onglets : **deux signaux** distincts (consulté vs retenu) ; **case cliquable** sur l’onglet (`aria-pressed`) + barre « Retenir » compacte (`py-2`) en miroir.
+- Onglets : **deux signaux** distincts — **coque onglet = consulté** (retenu **≠** style actif) ; **case cliquable** seule pour l’option retenue (`aria-pressed`) + barre « Retenir » compacte (`py-2`) en miroir.
+- Libellés alt FR **`Alternative {n}`** / AR **`بديل {n}`** ; si **3 alternatives** : libellé complet sur l’onglet consulté, court (`altTabShort`) sur les autres.
 - Pastille **Option consultée / retenue** sur le bloc produit ; tooltip nom produit sur onglets alt.
 - Section **Indisponibles + alternatives** : hint une ligne sous le titre (`respondedBuckets.indispo_with_alts.hint`).
-- i18n FR/AR : `optionViewing`, `optionRetained`, `retainTabAria*`, `retainShortPrincipal/Alt`, `altTab` AR **`بديل {n}`**.
+- i18n FR/AR : `optionViewing`, `optionRetained`, `retainTabAria*`, `retainShortPrincipal/Alt`, `altTab`, `altTabShort`.
 
 **Pharmacien** — [`pharmacist-line-alternatives-tabs.tsx`](components/pharmacist/pharmacist-line-alternatives-tabs.tsx), [`pharmacist-alternative-line-panel.tsx`](components/pharmacist/pharmacist-alternative-line-panel.tsx), [`page.tsx`](app/dashboard/pharmacien/demandes/[id]/page.tsx) :
 - Onglet alt : coche + bordure emerald si **retenu par le patient** ; `title` = nom produit complet.
@@ -2995,7 +2996,7 @@ Voir **§13.37**.
 
 ### 13.68) Phrase de reprise (alternatives visibilité patient/pharmacien — juin 2026)
 
-**« Pharmeto — reprise alternatives visibilité. **Pas de migration**. **Patient `responded`** : onglets Ta demande / Alt. — case **cliquable** + barre Retenir compacte ; pastille Option consultée/retenue ; hint section Indisponibles+alternatives ; i18n FR/AR (`demandes.responded`, `respondedBuckets.indispo_with_alts.hint`). **Pharmacien** : onglet alt avec coche si retenu patient ; panneau alt filet teal (fond blanc) ; vue figée sans liste dupliquée. **Fichiers** : `patient-responded-line-chooser.tsx`, `pharmacist-line-alternatives-tabs.tsx`, `pharmacist-alternative-line-panel.tsx`, `lib/variant-tabs-chrome.ts`. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto — reprise alternatives visibilité. **Pas de migration**. **Patient `responded`** : onglets Ta demande / Alternative — **coque = consulté**, **coche = retenu** (pas de bordure verte sur l’onglet retenu si autre onglet consulté) ; libellés **`Alternative {n}`** / **`altTabShort`** si 3 alts ; case cliquable + barre Retenir ; pastille Option consultée/retenue ; hint section Indisponibles+alternatives. **Pharmacien** : onglet alt avec coche si retenu patient ; panneau alt filet teal ; vue figée sans liste dupliquée. **Fichiers** : `patient-responded-line-chooser.tsx`, `lib/variant-tabs-chrome.ts`, composants pharmacien alt. Je te donne la tâche ou les retours preview. »**
 
 ### 13.67) Phrase de reprise (hubs unifiés + footers — juin 2026)
 
