@@ -47,6 +47,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 - **Correctifs preview** : typecheck titres hub **`7df29bf`** ; ligne onglets **Tous** qui descendait — shell sans `p.hero` **`f9b4091`**.
 - Branche **`feature/unified-hubs-footers`**, commit **`f9b4091`** — détail **`CAHIER_DES_CHARGES.md` §10** suite 3, reprise **§13.67**. Footers initiaux déjà sur **`main`** (PR **#379**).
 
+**Mise à jour 2026-06-17 — tableau de bord pharmacien refonte cockpit** :
+- **Branche** **`feature/pharmacist-dashboard-refonte`** (commit **`baab720`**) — PR vers `main`.
+- **Page** **`/dashboard/pharmacien`** : 4 zones (Action + garde, Dossiers, Mon officine, Visibilité) ; composants **`components/pharmacist/dashboard/*`** ; RPC **`pharmacist_dashboard_snapshot`** v2.
+- **Migration** **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`** (après **`20260835_001`** signalements admin form). *Renommée depuis `20260835_*` dashboard pour éviter collision avec `20260835_001_catalog_product_report_admin_form.sql`.*
+- Ancre migrations **`AGENTS.md`** → **`20260836_001`** · reprise **§13.69** · journal **§10 session 2026-06-17**.
+
 **Mise à jour 2026-06-16 (suite) — Mes produits : onglet Supprimés + restauration** :
 - **Migrations** **`20260830_001`** (lister `archived_hidden` + RPC **`pharmacist_restore_pharmacy_product`**) ; **`20260831_001`** si `20260830` déjà appliquée (filtre RPC Dépubliés ≠ Supprimés).
 - Hub **`/dashboard/pharmacien/mes-produits`** : onglet **Supprimés** (distinct de **Dépubliés**), badge Supprimé, bouton **Restaurer** — commits **`c90c478`**, **`c9bc238`** sur **`feature/whatsapp-m2-lot3-pharmacist`**.

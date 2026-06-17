@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260831_001`** si pas fait — après inbox **`20260825_001`**, WhatsApp lot 2 **`20260826_001`**, labels inbox **`20260827_001`**, WhatsApp lot 3 **`20260828_001`**, rupture marché catalogue privé **`20260829_001`**, restaurer produits Mes produits **`20260830_001`**, onglet Supprimés **`20260831_001`**) → phrase **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -263,7 +263,7 @@ Note:
 - Notifications
 
 ### Espace pharmacien (vision donnee)
-- Tableau de bord compte (`/dashboard/pharmacien`)
+- **Tableau de bord compte** (`/dashboard/pharmacien`) — cockpit compact : urgent + garde, dossiers (3 compteurs + 8 statuts repliables), mon officine (cartes hubs), visibilité (période 7/30/90 j)
 - **Demandes** (hub unifie produits + ordonnances + consultations — `/dashboard/pharmacien/demandes`, filtre `?parcours=`, bandeau unifié + compteurs liste)
 - Reservations packs promo
 - Horaires et garde
@@ -398,9 +398,13 @@ git checkout pilote-stable-2026-05-24
 
 **Retiré** : grille 8 statuts toujours visible, graphiques pleine page, bloc « Accès rapides » (10 pills).
 
-**RPC** : migration **`20260835_001_pharmacist_dashboard_snapshot_v2.sql`** — étend `pharmacist_dashboard_snapshot` (`operations`, `schedule`, `messages`, `ratings`, `requests.responded_pending`). Fallback UI si migration non appliquée.
+**RPC** : migration **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`** — étend `pharmacist_dashboard_snapshot` (`operations`, `schedule`, `messages`, `ratings`, `requests.responded_pending`). Fallback UI si migration non appliquée. *(Fichier renommé depuis `20260835_*` pour éviter collision avec `20260835_001_catalog_product_report_admin_form.sql`.)*
 
-**Fichiers** : `pharmacist-dashboard.tsx`, `lib/pharmacist-dashboard.ts`, `dashboard/*`, migration `20260835_001`.
+**Branche / PR** : **`feature/pharmacist-dashboard-refonte`** — commit **`baab720`**.
+
+**Migrations Supabase** : **`20260836_001`** appliquée (pilote).
+
+**Fichiers** : `pharmacist-dashboard.tsx`, `lib/pharmacist-dashboard.ts`, `dashboard/*`, migration `20260836_001`.
 
 **Phrase de reprise** : **§13.69**.
 
@@ -2698,8 +2702,13 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260829_001_market_shortage_skip_pharmacy_catalog_lines.sql` (rupture marché : pas d’insert hub si ligne catalogue privé sans `product_id`)
   - `supabase/migrations/20260830_001_pharmacy_catalog_restore_archived_hidden.sql` (Mes produits : lister supprimés + RPC restaurer)
   - `supabase/migrations/20260831_001_pharmacy_catalog_list_supprimes_filter.sql` (Mes produits : onglet Supprimés — filtre RPC séparé)
+  - `supabase/migrations/20260832_001_pharmacist_officine_notes_hub.sql` (hub Notes officine pharmacien)
+  - `supabase/migrations/20260833_001_catalog_product_reports.sql` (signalements produits catalogue)
+  - `supabase/migrations/20260834_001_pharmacist_pharmacy_ratings_hub.sql` (hub avis patients pharmacien)
+  - `supabase/migrations/20260835_001_catalog_product_report_admin_form.sql` (signalements : formulaire admin complet)
+  - `supabase/migrations/20260836_001_pharmacist_dashboard_snapshot_v2.sql` (tableau de bord pharmacien : snapshot RPC v2)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260831_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall en prod, **copies locales Phase 1 faites** (11 796 slugs — **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **11 notifs WhatsApp actives** (après merge lot 3 + vars Vercel). Reprise courte : **§13.66** (WhatsApp lot 3) ou **§13.64** (expiration passage) ou **§13.63** (photos — Phase 2 / upload Storage) ou **§13.62**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260836_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall en prod, **copies locales Phase 1 faites** (11 796 slugs — **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **11 notifs WhatsApp actives** (après merge lot 3 + vars Vercel). Reprise courte : **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.64** (expiration passage) ou **§13.63** (photos — Phase 2 / upload Storage) ou **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2718,6 +2727,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **Catalogue pilote** : **~19 677** produits en BDD (juin 2026) — **13 651** parapharmacie BeautyMall (photos URL **`beautymall.ma`**, descriptions HTML **`full_description`**, marques **~93,65 %**) + **6 026** médicaments officine (PPH/PPV, sans photo) ; voir **`scripts/README-beautymall-catalog.md`** et **`scripts/README-medicaments-officine.md`**.
 - **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (onglets **Coordonnées** / Accueil / Photos / Liens / Services ; titulaire + **`titular_public`** ; horaires compacts + fériés auto + garde ; upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
 - **`/admin`** : espace pilote refoné (**juin 2026**) — layout + nav **`lib/admin-nav.ts`** ; dashboard **`admin-dashboard.tsx`** ; **`/admin/demandes`**, **`/admin/officines`**, **`/admin/produits-communautaires`** ; onboarding officine (**`AdminOnboardPharmacyForm`**) ; accès pilote **`admin-pilot-access-list.tsx`**.
+- **`/dashboard/pharmacien`** — tableau de bord cockpit compact (**juin 2026**) : urgent + garde, dossiers, mon officine, visibilité — **`components/pharmacist/dashboard/*`** ; RPC **`pharmacist_dashboard_snapshot`** v2 (**`20260836_001`**).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
 - **`/dashboard/pharmacien/pricing`** — moteur de pricing officine (**`20260619_001`**, appliquée).
 - **`/dashboard/pharmacien/parametres`** — **Mes paramètres** pharmacien (**`pharmacist-settings-page.tsx`**, charte **`platform-dashboard-chrome`**).
@@ -3014,7 +3024,7 @@ Voir **§13.37**.
 
 ### 13.69) Phrase de reprise (tableau de bord pharmacien refonte — juin 2026)
 
-**« Pharmeto — reprise tableau de bord pharmacien refonte cockpit. **Migration** (si pas fait, après **`20260834_001`**) : **`20260835_001_pharmacist_dashboard_snapshot_v2.sql`**. **Page** `/dashboard/pharmacien` : zones Action (urgent + garde), Dossiers (3 compteurs + 8 statuts repliables), Mon officine (cartes hubs), Visibilité (période 7/30/90 j). **RPC** `pharmacist_dashboard_snapshot` v2 : operations, schedule/garde, messages, avis. **Fichiers** : `components/pharmacist/pharmacist-dashboard.tsx`, `components/pharmacist/dashboard/*`, `lib/pharmacist-dashboard.ts`. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto — reprise tableau de bord pharmacien refonte cockpit. **Migration** (si pas fait, après **`20260835_001`**) : **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`**. **Branche** **`feature/pharmacist-dashboard-refonte`**. **Page** `/dashboard/pharmacien` : zones Action (urgent + garde), Dossiers (3 compteurs + 8 statuts repliables), Mon officine (cartes hubs), Visibilité (période 7/30/90 j). **RPC** `pharmacist_dashboard_snapshot` v2 : operations, schedule/garde, messages, avis. **Fichiers** : `components/pharmacist/pharmacist-dashboard.tsx`, `components/pharmacist/dashboard/*`, `lib/pharmacist-dashboard.ts`. Je te donne la tâche ou les retours preview. »**
 
 ### 13.68) Phrase de reprise (alternatives visibilité patient/pharmacien — juin 2026)
 
