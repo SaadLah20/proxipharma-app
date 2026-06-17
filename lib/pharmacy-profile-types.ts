@@ -76,6 +76,8 @@ export type PharmacyDayScheduleLine = {
   isException: boolean;
   /** Journée calendaire affichée uniquement comme garde (pas de créneaux habituels). */
   isOnCallFullDay?: boolean;
+  /** Jour calendaire de début de garde (affichage « à partir de … »). */
+  isOnCallStartDay?: boolean;
   /** Jour de fin de garde (ex. 10 mai 9h après garde du 9 mai). */
   isOnCallTailDay?: boolean;
   /** Jour férié national marocain (sans exception officine). */

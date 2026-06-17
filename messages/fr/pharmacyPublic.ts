@@ -11,6 +11,7 @@ export const pharmacyPublicFr = {
   closedNow: "Fermée",
   onCall: "En garde",
   onCallInProgress: "De garde · en cours",
+  onCallUpcoming: "Garde à partir de {time}",
   call: "Appeler",
   whatsapp: "WhatsApp",
   whatsappMessage: "Message",

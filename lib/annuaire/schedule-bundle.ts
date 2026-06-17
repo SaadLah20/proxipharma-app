@@ -114,7 +114,15 @@ export async function loadScheduleBundleForPharmacy(
 
 export function openSnapshotForBundle(bundle: PharmacyScheduleBundle | undefined): PharmacyOpenSnapshot {
   if (!bundle) {
-    return { status: "closed", openLabel: "Fermée", onCallNow: false, onCallToday: false, onCallBadgeVisible: false };
+    return {
+      status: "closed",
+      openLabel: "Fermée",
+      onCallNow: false,
+      onCallToday: false,
+      onCallBadgeVisible: false,
+      onCallUpcomingToday: false,
+      onCallUpcomingFromLabel: null,
+    };
   }
   return resolvePharmacyOpenStatus(bundle.weekly, bundle.overrides, bundle.onCall);
 }

@@ -39,7 +39,11 @@ function slotLabel(
 }
 
 function nowInCasablanca(): Date {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
+  return dateInCasablanca(new Date());
+}
+
+function dateInCasablanca(d: Date): Date {
+  return new Date(d.toLocaleString("en-US", { timeZone: TZ }));
 }
 
 function isoDateInCasablanca(d: Date = nowInCasablanca()): string {
@@ -52,11 +56,6 @@ function isoDateInCasablanca(d: Date = nowInCasablanca()): string {
 function isoWeekdayInCasablanca(d: Date = nowInCasablanca()): number {
   const js = d.getDay();
   return js === 0 ? 7 : js;
-}
-
-function minutesNowInCasablanca(): number {
-  const d = nowInCasablanca();
-  return d.getHours() * 60 + d.getMinutes();
 }
 
 function minutesFromIsoInCasablanca(iso: string): number {
@@ -79,12 +78,14 @@ function periodOverlapsDate(p: PharmacyOnCallPeriodRow, dateIso: string): boolea
   return dateIso >= startDay && dateIso <= endDay;
 }
 
-function isGardeFullDisplayDay(p: PharmacyOnCallPeriodRow, dateIso: string): boolean {
+function isGardeStartDisplayDay(p: PharmacyOnCallPeriodRow, dateIso: string): boolean {
+  return periodOverlapsDate(p, dateIso) && dateIso === periodStartDateIso(p);
+}
+
+function isGardeMiddleDisplayDay(p: PharmacyOnCallPeriodRow, dateIso: string): boolean {
   if (!periodOverlapsDate(p, dateIso)) return false;
   const startDay = periodStartDateIso(p);
   const endDay = periodEndDateIso(p);
-  if (dateIso === startDay) return true;
-  if (dateIso === endDay) return false;
   return dateIso > startDay && dateIso < endDay;
 }
 
@@ -92,12 +93,23 @@ function gardeTailEndMinutesOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: s
   let max: number | null = null;
   for (const p of onCall) {
     if (!periodOverlapsDate(p, dateIso)) continue;
-    if (isGardeFullDisplayDay(p, dateIso)) continue;
+    if (isGardeStartDisplayDay(p, dateIso)) continue;
+    if (isGardeMiddleDisplayDay(p, dateIso)) continue;
     if (periodEndDateIso(p) !== dateIso) continue;
     const m = minutesFromIsoInCasablanca(p.ends_at);
     if (max == null || m > max) max = m;
   }
   return max;
+}
+
+function gardeStartMinutesOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): number | null {
+  let min: number | null = null;
+  for (const p of onCall) {
+    if (!isGardeStartDisplayDay(p, dateIso)) continue;
+    const m = minutesFromIsoInCasablanca(p.starts_at);
+    if (min == null || m < min) min = m;
+  }
+  return min;
 }
 
 function gardeFullDayLine(periods: PharmacyOnCallPeriodRow[], labels: PharmacyScheduleLabels): string {
@@ -108,6 +120,17 @@ function gardeFullDayLine(periods: PharmacyOnCallPeriodRow[], labels: PharmacySc
 
 function gardeTailLine(endMinutes: number, labels: PharmacyScheduleLabels): string {
   return labels.onCallUntil(labels.formatMinutes(endMinutes));
+}
+
+function gardeStartLine(
+  periods: PharmacyOnCallPeriodRow[],
+  startMinutes: number,
+  labels: PharmacyScheduleLabels,
+): string {
+  const kind = periods[0]?.kind;
+  const kindLab = kind ? labels.onCallKind[kind] : null;
+  const base = labels.onCallFrom(labels.formatMinutes(startMinutes));
+  return kindLab ? `${base} (${kindLab})` : base;
 }
 
 function weeklyForDay(weekly: PharmacyWeeklyHourRow[], weekday: number): PharmacyWeeklyHourRow[] {
@@ -224,10 +247,34 @@ function buildPublicDayLines(
   onCall: PharmacyOnCallPeriodRow[],
   locale: AppLocale,
   labels: PharmacyScheduleLabels,
-): { lines: string[]; isOnCallFullDay: boolean; isOnCallTailDay: boolean; isPublicHoliday: boolean } {
-  const fullPeriods = onCall.filter((p) => isGardeFullDisplayDay(p, dateIso));
-  if (fullPeriods.length > 0) {
-    return { lines: [gardeFullDayLine(fullPeriods, labels)], isOnCallFullDay: true, isOnCallTailDay: false, isPublicHoliday: false };
+): {
+  lines: string[];
+  isOnCallFullDay: boolean;
+  isOnCallStartDay: boolean;
+  isOnCallTailDay: boolean;
+  isPublicHoliday: boolean;
+} {
+  const middlePeriods = onCall.filter((p) => isGardeMiddleDisplayDay(p, dateIso));
+  if (middlePeriods.length > 0) {
+    return {
+      lines: [gardeFullDayLine(middlePeriods, labels)],
+      isOnCallFullDay: true,
+      isOnCallStartDay: false,
+      isOnCallTailDay: false,
+      isPublicHoliday: false,
+    };
+  }
+
+  const startPeriods = onCall.filter((p) => isGardeStartDisplayDay(p, dateIso));
+  if (startPeriods.length > 0) {
+    const startMin = gardeStartMinutesOnDate(onCall, dateIso) ?? 0;
+    return {
+      lines: [gardeStartLine(startPeriods, startMin, labels)],
+      isOnCallFullDay: false,
+      isOnCallStartDay: true,
+      isOnCallTailDay: false,
+      isPublicHoliday: false,
+    };
   }
 
   const tailEnd = gardeTailEndMinutesOnDate(onCall, dateIso);
@@ -264,6 +311,7 @@ function buildPublicDayLines(
   return {
     lines,
     isOnCallFullDay: false,
+    isOnCallStartDay: false,
     isOnCallTailDay: tailEnd != null,
     isPublicHoliday: Boolean(publicHoliday && !override),
   };
@@ -275,9 +323,10 @@ export function buildCurrentWeekSchedule(
   overrides: PharmacyDayOverrideRow[],
   onCall: PharmacyOnCallPeriodRow[],
   locale: AppLocale = "fr",
+  referenceAt?: Date,
 ): PharmacyDayScheduleLine[] {
   const labels = pharmacyScheduleLabelsForLocale(locale);
-  const now = nowInCasablanca();
+  const now = referenceAt ? dateInCasablanca(referenceAt) : nowInCasablanca();
   const todayIso = isoDateInCasablanca(now);
 
   const overrideByDate = new Map(overrides.map((o) => [o.day_date, o]));
@@ -289,7 +338,7 @@ export function buildCurrentWeekSchedule(
     const dateIso = isoDateInCasablanca(d);
     const weekday = isoWeekdayInCasablanca(d);
     const override = overrideByDate.get(dateIso);
-    const { lines, isOnCallFullDay, isOnCallTailDay, isPublicHoliday } = buildPublicDayLines(
+    const { lines, isOnCallFullDay, isOnCallStartDay, isOnCallTailDay, isPublicHoliday } = buildPublicDayLines(
       dateIso,
       weekday,
       weekly,
@@ -305,8 +354,9 @@ export function buildCurrentWeekSchedule(
       dateLabel: labels.dateLabel(dateIso),
       lines,
       isToday: dateIso === todayIso,
-      isException: Boolean((override || isPublicHoliday) && !isOnCallFullDay),
+      isException: Boolean((override || isPublicHoliday) && !isOnCallFullDay && !isOnCallStartDay),
       isOnCallFullDay,
+      isOnCallStartDay,
       isOnCallTailDay,
       isPublicHoliday,
     });
@@ -368,21 +418,32 @@ export function resolvePharmacyOpenStatus(
   weekly: PharmacyWeeklyHourRow[],
   overrides: PharmacyDayOverrideRow[],
   onCall: PharmacyOnCallPeriodRow[],
+  at: Date = new Date(),
+  locale: AppLocale = "fr",
 ): {
   status: PharmacyOpenStatus;
   openLabel: string;
   onCallNow: boolean;
   onCallToday: boolean;
   onCallBadgeVisible: boolean;
+  onCallUpcomingToday: boolean;
+  onCallUpcomingFromLabel: string | null;
 } {
-  const now = new Date();
-  const todayIso = isoDateInCasablanca();
-  const onCallNow = isOnCallNowAt(onCall, now);
+  const casablancaNow = dateInCasablanca(at);
+  const todayIso = isoDateInCasablanca(casablancaNow);
+  const onCallNow = isOnCallNowAt(onCall, at);
   const onCallToday = isOnCallOnDate(onCall, todayIso);
   const onCallBadgeVisible = onCallNow;
 
-  const minutes = minutesNowInCasablanca();
-  const weekday = isoWeekdayInCasablanca();
+  const minutes = casablancaNow.getHours() * 60 + casablancaNow.getMinutes();
+  const startMinToday = gardeStartMinutesOnDate(onCall, todayIso);
+  const labels = pharmacyScheduleLabelsForLocale(locale);
+  const onCallUpcomingToday =
+    onCallToday && !onCallNow && startMinToday != null && minutes < startMinToday;
+  const onCallUpcomingFromLabel =
+    onCallUpcomingToday && startMinToday != null ? labels.formatMinutes(startMinToday) : null;
+
+  const weekday = isoWeekdayInCasablanca(casablancaNow);
   const override = overrides.find((o) => o.day_date === todayIso);
 
   let open = onCallNow;
@@ -403,6 +464,8 @@ export function resolvePharmacyOpenStatus(
     onCallNow,
     onCallToday,
     onCallBadgeVisible,
+    onCallUpcomingToday,
+    onCallUpcomingFromLabel,
   };
 }
 
@@ -483,7 +546,7 @@ function onCallSlotsOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): 
   const slots: PharmacyOpenSlot[] = [];
   for (const p of onCall) {
     if (!periodOverlapsDate(p, dateIso)) continue;
-    if (isGardeFullDisplayDay(p, dateIso)) {
+    if (isGardeMiddleDisplayDay(p, dateIso)) {
       slots.push({ startMin: 0, endMin: 24 * 60 });
       continue;
     }
@@ -525,8 +588,8 @@ export function openSlotsForDay(
   onCall: PharmacyOnCallPeriodRow[],
   dateIso: string,
 ): PharmacyOpenSlot[] {
-  const fullPeriods = onCall.filter((p) => isGardeFullDisplayDay(p, dateIso));
-  if (fullPeriods.length > 0) {
+  const middlePeriods = onCall.filter((p) => isGardeMiddleDisplayDay(p, dateIso));
+  if (middlePeriods.length > 0) {
     return [{ startMin: 0, endMin: 24 * 60 }];
   }
 
@@ -563,7 +626,7 @@ export function isPharmacyOpenAt(
   dateIso: string,
   minutesOfDay: number,
 ): boolean {
-  if (onCall.some((p) => isGardeFullDisplayDay(p, dateIso))) return true;
+  if (onCall.some((p) => isGardeMiddleDisplayDay(p, dateIso))) return true;
   if (isOnCallAt(onCall, dateIso, minutesOfDay)) return true;
 
   return openSlotsForDay(weekly, overrides, onCall, dateIso).some(

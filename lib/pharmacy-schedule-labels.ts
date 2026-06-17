@@ -14,6 +14,7 @@ export type PharmacyScheduleLabels = {
   closedExceptional: string;
   customHours: string;
   onCallFullDay: string;
+  onCallFrom: (time: string) => string;
   onCallUntil: (time: string) => string;
   onCallKind: Record<string, string>;
   holidayPrefix: string;
@@ -89,6 +90,7 @@ export function pharmacyScheduleLabelsForLocale(locale: AppLocale): PharmacySche
       closedExceptional: "مغلق (استثناء)",
       customHours: "مواعيد خاصة",
       onCallFullDay: "مناوبة طوال اليوم",
+      onCallFrom: (time) => `مناوبة من ${time}`,
       onCallUntil: (time) => `مناوبة حتى ${time}`,
       onCallKind: ON_CALL_KIND_AR,
       holidayPrefix: "عطلة رسمية",
@@ -114,6 +116,7 @@ export function pharmacyScheduleLabelsForLocale(locale: AppLocale): PharmacySche
     closedExceptional: "Fermé exceptionnellement",
     customHours: "Horaires spécifiques",
     onCallFullDay: "Permanence de garde — journée entière",
+    onCallFrom: (time) => `Garde à partir de ${time}`,
     onCallUntil: (time) => `Garde jusqu'à ${time}`,
     onCallKind: ON_CALL_KIND_FR,
     holidayPrefix: "Férié",

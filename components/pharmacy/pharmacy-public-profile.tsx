@@ -49,6 +49,7 @@ import type { PharmacyDayScheduleLine, PharmacyOpenStatus } from "@/lib/pharmacy
 import {
   pharmacyOpenStatusInlineBadgeClass,
   pharmacyOpenStatusOverlayBadgeClass,
+  pharmacyOnCallOverlayBadgeClass,
   pharmacyScheduleLineBadgeClass,
 } from "@/lib/pharmacy-open-status-ui";
 
@@ -66,10 +67,14 @@ function PharmacyWeekScheduleView({
   days,
   openLabel,
   openStatus,
+  onCallUpcomingToday,
+  onCallUpcomingFromLabel,
 }: {
   days: PharmacyDayScheduleLine[];
   openLabel: string;
   openStatus: PharmacyOpenStatus;
+  onCallUpcomingToday: boolean;
+  onCallUpcomingFromLabel: string | null;
 }) {
   const t = useTranslations("pharmacyPublic");
   const today = days.find((d) => d.isToday);
@@ -83,7 +88,14 @@ function PharmacyWeekScheduleView({
               <CalendarClock className="size-4 text-primary" aria-hidden />
               {t("today", { weekday: today.weekdayLabel, date: today.dateLabel })}
             </p>
-            <span className={pharmacyOpenStatusInlineBadgeClass(openStatus)}>{openLabel}</span>
+            <div className="flex flex-wrap gap-1">
+              <span className={pharmacyOpenStatusInlineBadgeClass(openStatus)}>{openLabel}</span>
+              {onCallUpcomingToday && onCallUpcomingFromLabel ? (
+                <span className={pharmacyOnCallOverlayBadgeClass(false)}>
+                  {t("onCallUpcoming", { time: onCallUpcomingFromLabel })}
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             {today.lines.map((line, i) => (
@@ -101,8 +113,8 @@ function PharmacyWeekScheduleView({
             className={clsx(
               "flex gap-3 px-3 py-2.5 sm:gap-4",
               day.isToday && "bg-primary/[0.04]",
-              day.isOnCallFullDay && !day.isToday && "bg-amber-50/50",
-              day.isException && !day.isToday && !day.isOnCallFullDay && "bg-amber-50/40"
+              (day.isOnCallFullDay || day.isOnCallStartDay) && !day.isToday && "bg-amber-50/50",
+              day.isException && !day.isToday && !day.isOnCallFullDay && !day.isOnCallStartDay && "bg-amber-50/40"
             )}
           >
             <div className="min-w-[5.5rem] shrink-0 sm:min-w-[6.5rem]">
@@ -110,7 +122,7 @@ function PharmacyWeekScheduleView({
                 {day.weekdayLabel}
               </p>
               <p className="text-[10px] text-muted-foreground">{day.dateLabel}</p>
-              {day.isOnCallFullDay ? (
+              {day.isOnCallFullDay || day.isOnCallStartDay ? (
                 <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
                   {t("onCallShort")}
                 </span>
@@ -170,8 +182,8 @@ export function PharmacyPublicProfile({
   const logoUrl = resolvePublicMediaUrl(pharmacy.logo_url ?? null);
   const wa = normalizeWhatsApp(pharmacy.whatsapp);
   const openState = useMemo(
-    () => resolvePharmacyOpenStatus(weeklyHours, dayOverrides, onCallPeriods),
-    [weeklyHours, dayOverrides, onCallPeriods]
+    () => resolvePharmacyOpenStatus(weeklyHours, dayOverrides, onCallPeriods, undefined, locale),
+    [weeklyHours, dayOverrides, onCallPeriods, locale]
   );
   const openLabel = openState.status === "open" ? t("openNow") : t("closedNow");
   const weekLines = useMemo(
@@ -316,6 +328,10 @@ export function PharmacyPublicProfile({
                 <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-[10px] font-bold text-amber-950 ring-1 ring-amber-500/60">
                   {t("onCallInProgress")}
                 </span>
+              ) : openState.onCallUpcomingToday && openState.onCallUpcomingFromLabel ? (
+                <span className={pharmacyOnCallOverlayBadgeClass(false)}>
+                  {t("onCallUpcoming", { time: openState.onCallUpcomingFromLabel })}
+                </span>
               ) : null}
             </div>
           </div>
@@ -343,7 +359,13 @@ export function PharmacyPublicProfile({
         {tab === "hours" ? (
           <div className="space-y-3">
             <PharmacyPublicSectionTitle title={t("hoursTitle")} hint={t("hoursHint")} />
-            <PharmacyWeekScheduleView days={weekLines} openLabel={openLabel} openStatus={openState.status} />
+            <PharmacyWeekScheduleView
+              days={weekLines}
+              openLabel={openLabel}
+              openStatus={openState.status}
+              onCallUpcomingToday={openState.onCallUpcomingToday}
+              onCallUpcomingFromLabel={openState.onCallUpcomingFromLabel}
+            />
           </div>
         ) : null}
 

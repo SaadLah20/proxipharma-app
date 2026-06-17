@@ -27,6 +27,7 @@ export const annuaireFr = {
   },
   card: {
     onCall: "En garde",
+    onCallUpcoming: "Garde à partir de {time}",
     noGps: "Position GPS non renseignée — tri par distance indisponible.",
     viewProfile: "Voir la fiche",
   },

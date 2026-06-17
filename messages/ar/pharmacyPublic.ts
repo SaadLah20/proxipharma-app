@@ -11,6 +11,7 @@ export const pharmacyPublicAr = {
   closedNow: "مغلقة",
   onCall: "مناوبة",
   onCallInProgress: "مناوبة · جارية الآن",
+  onCallUpcoming: "مناوبة من {time}",
   call: "اتصال",
   whatsapp: "واتساب",
   whatsappMessage: "رسالة",
