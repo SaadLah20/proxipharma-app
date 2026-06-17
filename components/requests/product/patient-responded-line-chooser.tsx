@@ -695,30 +695,16 @@ function RespondedLineBlock({
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="space-y-1">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <p
-                className={cn(
-                  "line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug",
-                  unavailable ? "text-slate-600" : "text-foreground",
-                  notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
-                )}
-                title={variant.productName}
-              >
-                {variant.productName}
-              </p>
-              {variantTabsAbove ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded border px-1.5 py-px text-[9px] font-semibold leading-none",
-                    retained
-                      ? "border-emerald-500/50 bg-emerald-50/80 text-emerald-900"
-                      : "border-border/70 bg-muted/30 text-muted-foreground"
-                  )}
-                >
-                  {retained ? tResponded("optionRetained") : tResponded("optionViewing")}
-                </span>
-              ) : null}
-            </div>
+            <p
+              className={cn(
+                "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug",
+                unavailable ? "text-slate-600" : "text-foreground",
+                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
+              )}
+              title={variant.productName}
+            >
+              {variant.productName}
+            </p>
 
             {isProposedBlock ? (
               <RespondedProposedMotifBlock
