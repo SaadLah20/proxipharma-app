@@ -309,16 +309,20 @@ export function ProductRequestLineQtyReadonly({
   qty,
   appearance = "default",
   lineAccent = "sky",
+  compact = false,
 }: {
   qty: number;
   appearance?: "default" | "neutral";
   lineAccent?: PatientWorkflowLineAccent;
+  /** À côté de PU/Tot sur une carte compacte (pas de largeur pleine). */
+  compact?: boolean;
 }) {
   const td = useTranslations("demandePublic");
   return (
     <span
       className={cn(
-        "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center rounded-full border px-2.5",
+        "inline-flex h-7 items-center justify-center rounded-full border px-2.5",
+        compact ? "w-auto shrink-0" : "w-full max-w-[6.75rem]",
         qtyAccentReadonlyClass(appearance, lineAccent)
       )}
       aria-label={td("qtyReadonlyAria", { qty })}
