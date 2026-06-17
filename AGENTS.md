@@ -15,7 +15,7 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 | Contexte onboarding / Supabase | `CONTEXTE.md` §6 |
 | Spec produit + journal sessions | `CAHIER_DES_CHARGES.md` — §0.1, §4.4–§4.6, §10, §11, §12 |
 | Reprise sans tâche | `CAHIER_DES_CHARGES.md` §13.35 |
-| Reprise courte (infra à jour) | §13.67 (hubs + footers), §13.66 (WhatsApp lot 3), §13.65 (inbox), §13.64 (expiration passage), §13.63 (photos catalogue), §13.62 (général), §13.61 (catalogue) |
+| Reprise courte (infra à jour) | §13.70 (titres dossier patient), §13.69 (TDB pharmacien), §13.67 (hubs + footers), §13.66 (WhatsApp lot 3), §13.65 (inbox), §13.64 (expiration passage), §13.63 (photos catalogue), §13.62 (général), §13.61 (catalogue) |
 | Livraison git/PR (utilisateur non dev) | `.cursor/rules/delivery-workflow-user.mdc` |
 | WhatsApp notifs | `docs/WHATSAPP-NOTIFS-REPRISE.md`, `RUNBOOK.md` §10 |
 | Runbook ops | `RUNBOOK.md` |
@@ -35,6 +35,7 @@ Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publ
 - **Expiration passage `treated`** : sans retrait comptoir ni modification date → **`abandoned`** (`auto_abandon_after_pickup_window`) — fin **J+1 23:59** Casablanca si pas d’heure, sinon **passage + 24 h**. RPC cron **`abandon_overdue_pickup_requests`** + rappels **`remind_planned_visit_passage`**. Migration **`20260823_001`** ; helper TS **`lib/planned-visit-abandon-deadline.ts`**. Ne pas confondre avec **`expired`** (pré-validation).
 - **`post_confirm_fulfillment`** : envoyer **`unset`**, jamais **`null`** (NOT NULL). Clamp = dispo déduite du brouillon (`buildItemUpdatePayload`, **`inferredAvailabilityForPostConfirmClamp`**).
 - **Post-validé pharmacien** : enregistrer via **Enregistrer les modifications** (`PharmacistSupplyCompactLine`) — pas d’auto-save comptoir.
+- **Titres sections dossier patient** : buckets produit (`Patient*BucketSection`) — en-tête **14px**, barre **neutre** + filet gauche (`lib/patient-dossier-bucket-section-chrome.ts`) ; pharmacien garde barres teintées (`audience="pharmacien"`).
 - **Types de demande** (`lib/request-kinds/`) : produits **sky**, ordonnances **amber**, consultations **violet**, promos **emerald**. Compte/officine = **`lib/platform-dashboard-chrome.ts`** (pas couleurs dossier). **Hub demandes unifié** : bandeau **`RequestUnifiedHubChrome`** ; parcours **`tous`** = accent plateforme (`PLATFORM_HUB_BANNER_SHELL`, pas `p.hero` avec padding) ; titre centré via **`unifiedHubTitleKey`** (rôle `pharmacien` → clé i18n `pharmacist`) ; liste **X/Y actives** (`HubListScopeCount`). Hubs : `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx` — plus **`PatientWorkflowHubHeader`** / **`PharmacistWorkflowHubHeader`** sur ces écrans.
 - **Pricing** : médicament **PPV** ; parapharmacie PPH + marge −10 % à +40 % (produit > marque > global). Modal patient = **`lib/patient-responded-line-pricing.ts`**.
 - **Rupture marché** : dispo **`market_shortage`** sur la ligne OK partout ; entrée hub **`market_shortages`** **uniquement** si la ligne a un **`product_id`** catalogue national (`pharmacy_product_id` seul → pas d’insert hub — migration **`20260829_001`**).

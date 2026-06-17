@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.70** (titres sections dossier patient) ou **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -187,7 +187,7 @@ Cas de rendu attendus:
 
 Sans nouvelle validation patient obligatoire pour les ajustements officine courants :
 
-- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, historique, note, titre, qté, PU/Tot) ; **`confirmed`** : blocs **À réserver** (contour sky) / **À commander** (teal) + point d’attention + écarts + **`<details>`** non retenues ; bandeau amendements dans **`PatientProductRequestDossierHeader`** (**Modifiée** + **Résumé**) si amendements officine ; **`treated`** : blocs **« Produits réservés pour vous et en attente de votre passage »** / **« Produits commandés pour vous »** ; phrase passage **`patientPlannedVisitPassageLineFr`** sous l’en-tête dossier ; pastilles ligne sans « réservé / commandé » sur **traitée** ; **Réception prévue** (teal/cyan) et **Reçu en officine** (émeraude) — pas de « Réception prévue » si **`arrived_reserved`** ; **bandeau libellés** (**`lib/patient-validated-line-labels-fr.ts`**) ; **Historique** + **notes ligne** → **`lib/build-patient-line-timeline-fr.ts`**. Dossiers **terminés** : **`PatientRequestOutcomeBanner`** + vue lecture seule. Le **détail lecture seule** hors ce bloc peut encore reprendre la liste complète dans **`page.tsx`**.
+- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, historique, note, titre, qté, PU/Tot) ; **`confirmed`** : blocs **À réserver** / **À commander** (en-têtes bucket : titre **14px**, barre **neutre** + filet gauche indicatif — **`lib/patient-dossier-bucket-section-chrome.ts`**) + point d’attention + écarts + **`<details>`** non retenues ; bandeau amendements dans **`PatientProductRequestDossierHeader`** (**Modifiée** + **Résumé**) si amendements officine ; **`treated`** : blocs **Réservés pour vous** / **Commandés pour vous** (même chrome en-tête) ; phrase passage **`patientPlannedVisitPassageLineFr`** sous l’en-tête dossier ; pastilles ligne sans « réservé / commandé » sur **traitée** ; **Réception prévue** (teal/cyan) et **Reçu en officine** (émeraude) — pas de « Réception prévue » si **`arrived_reserved`** ; **bandeau libellés** (**`lib/patient-validated-line-labels-fr.ts`**) ; **Historique** + **notes ligne** → **`lib/build-patient-line-timeline-fr.ts`**. Dossiers **terminés** : **`PatientRequestOutcomeBanner`** + vue lecture seule. Le **détail lecture seule** hors ce bloc peut encore reprendre la liste complète dans **`page.tsx`**.
 - **Suivi courant** : encart **« Suivi officine »** avec **mêmes champs** (qté, dispo, prix, état). Tant qu'**aucun `counter_outcome` n'est posé** sur la ligne (i.e. la pharmacie n'a pas commencé l'exécution comptoir), l'encart affiche un placeholder **« En cours · la pharmacie n'a pas encore commencé… »** (pas de données techniques exposées). Dès qu'un résultat comptoir est saisi, le bloc bascule en mode complet ; message si **quantité suivie ≠ quantité validée**.
 - **Statuts dossier après validation (DB)** : en plus de **`confirmed`**, le workflow produit utilise **`processing`** (préparation officine enregistrée côté système) et **`treated`** (la pharmacie déclare la préparation terminée ; le suivi actif est le **comptoir** jusqu'à **`completed`**). Transitions typiques : premier lot d'ajustements structurés avec canal patient ou première saisie **`reserved`/`ordered`** depuis **`confirmed`** peut faire passer en **`processing`** ; RPC **`pharmacist_mark_request_treated`** passe en **`treated`** lorsque chaque ligne **retenue et non écartée** est cohérente (**`reserved`** sur voie officine disponible / partiel, **`ordered`** sur voie à commander).
 - **Après validation — réservation / commande (sans comptoir)** : chaque ligne peut porter **`post_confirm_fulfillment`** (`unset` / `reserved` / `ordered`) — saisie pharmacien en **`confirmed`**, **`processing`** ou **`treated`**. Les **hubs** et les **cartes liste** affichent **`processing`** ou **`treated`** quand le statut DB l'est ; le statut virtuel **`in_progress_virtual`** (« **En préparation** ») subsiste tant que le dossier reste **`confirmed`** avec **au moins une ligne** **`reserved`** ou **`ordered`** mais sans encore **`processing`** en base (rétrocompatibilité avec l'ancre **`post_confirm_fulfillment`** seule).
@@ -385,6 +385,20 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+### Session 2026-06-17 (suite) — Dossier patient : visibilité titres de sections
+
+**Branche** : **`feature/pharmacist-dashboard-refonte`** — commit **`12a170e`**.
+
+**Patient** — en-têtes des groupes produit (`responded` / `confirmed` / `processing` / `treated` / archive) :
+- Titres **14px** (`text-sm font-bold`) ; barre d’en-tête **fond neutre** (`bg-card`) — **sans** teinte `bg-sky-50/20` / `bg-teal-50/25` sur le patient.
+- **Filet gauche** coloré conservé (indication discrète déjà en place) ; **hauteur inchangée** (`py-1.5`, une ligne).
+- Chrome partagé **`lib/patient-dossier-bucket-section-chrome.ts`** ; composants **`PatientRespondedBucketSection`**, **`PatientValidatedBucketSection`**, **`PatientClosedArchiveBucketSection`**, **`PatientArchiveCollapsibleSection`** + summaries repliés dans **`patient-product-request-actions.tsx`**.
+- **Pharmacien** : barres teintées et typo **12–13px** inchangées (`audience="pharmacien"`).
+
+**Migrations** : aucune.
+
+**Phrase de reprise** : **§13.70**.
 
 ### Session 2026-06-17 — Tableau de bord pharmacien : refonte cockpit compact
 
@@ -3021,6 +3035,10 @@ Voir **§13.37**.
 **Phrase de reprise (étape 6 / fin pilote i18n patient)** :
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
+
+### 13.70) Phrase de reprise (titres sections dossier patient — juin 2026)
+
+**« Pharmeto — reprise visibilité titres sections dossier patient. **Pas de migration**. **Branche** **`feature/pharmacist-dashboard-refonte`** (commit **`12a170e`**). **Patient** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** + **`PatientArchiveCollapsibleSection`**. **Pharmacien** : style barre teintée inchangé. Je te donne la tâche ou les retours preview. »**
 
 ### 13.69) Phrase de reprise (tableau de bord pharmacien refonte — juin 2026)
 
