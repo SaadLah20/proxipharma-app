@@ -315,7 +315,7 @@ export function PharmacyPromoOffersManager() {
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Packs promo"
         title="Offres et promos"
         subtitle="Créez des packs promo (max. 5 produits + 5 cadeaux) publiés sur votre fiche."
         trailing={

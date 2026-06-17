@@ -242,7 +242,7 @@ export function PharmacistProfileAnalytics() {
   return (
     <PageShell maxWidthClass="max-w-6xl" className="space-y-5">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Visibilité"
         title="Visites et interactions"
         subtitle="Analytics de votre fiche publique : audiences, clics contact, dossiers et réservations promo."
         pharmacyName={pharmacyNom}

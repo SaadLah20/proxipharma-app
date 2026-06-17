@@ -445,7 +445,7 @@ export function PharmacistOrderedProductsHub() {
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
       <PharmacistAccountPageHeader
-        eyebrow="Suivi approvisionnement"
+        eyebrow="Produits"
         title="Produits commandés"
         subtitle="Lignes validées « à commander » ou « commandées » — marquez la réception fournisseur pour toutes les demandes concernées."
       />

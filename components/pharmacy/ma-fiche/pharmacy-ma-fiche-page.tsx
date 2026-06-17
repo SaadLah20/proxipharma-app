@@ -283,7 +283,7 @@ export function PharmacyMaFichePage() {
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <header className="space-y-3">
         <PharmacistAccountPageHeader
-          eyebrow="Officine & visibilité"
+          eyebrow="Officine"
           title="Ma fiche publique"
           subtitle="Contenu affiché sur votre fiche publique (onglet Informations et en-tête)."
           pharmacyName={contactForm.nom.trim() || undefined}

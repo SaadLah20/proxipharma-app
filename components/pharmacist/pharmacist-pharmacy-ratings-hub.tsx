@@ -206,7 +206,7 @@ export function PharmacistPharmacyRatingsHub() {
   return (
     <PageShell maxWidthClass="max-w-5xl" className="space-y-5">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Officine"
         title="Avis patients"
         subtitle="Notes et commentaires laissés sur votre fiche publique Pharmeto (1 avis par patient)."
         pharmacyName={pharmacyNom || undefined}

@@ -322,7 +322,7 @@ export function PharmacistMarketShortageHub() {
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
       <PharmacistAccountPageHeader
-        eyebrow="Suivi approvisionnement"
+        eyebrow="Produits"
         title="Produits en rupture"
         subtitle="Ruptures de marché déclarées — notifiez les patients quand le produit redevient disponible."
       />

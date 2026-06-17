@@ -404,6 +404,7 @@ export function PharmacistCatalogReportsHub() {
   return (
     <PageShell>
       <PharmacistAccountPageHeader
+        eyebrow="Produits"
         title="Produits signalés"
         subtitle="Signalez des erreurs sur le catalogue national Pharmeto et suivez leur traitement."
       />

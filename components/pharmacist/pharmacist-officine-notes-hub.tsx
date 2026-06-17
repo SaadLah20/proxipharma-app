@@ -230,7 +230,7 @@ export function PharmacistOfficineNotesHub() {
   return (
     <PageShell maxWidthClass="max-w-5xl" className="space-y-5">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Officine"
         title="Notes officine"
         subtitle="Suivi centralisé des notes patient et officine (lignes de demande, messages à l’envoi, réservations packs)."
         pharmacyName={pharmacyNom || undefined}
