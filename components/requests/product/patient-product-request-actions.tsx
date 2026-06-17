@@ -79,6 +79,7 @@ import {
   PATIENT_RESPONDED_BUCKET_ORDER,
 } from "@/lib/patient-responded-line-buckets";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
+import { patientDossierCollapsibleTitleClass } from "@/lib/patient-dossier-bucket-section-chrome";
 import {
   patientPrescriptionBucketProductListClass,
   patientPrescriptionLinesWrapperClass,
@@ -3911,7 +3912,7 @@ export function PatientProductRequestActions({
               {retireesApresValidation.length > 0 ? (
                 <details className="group w-full min-w-0 rounded-lg border border-border/80 bg-muted/15">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-foreground [&::-webkit-details-marker]:hidden">
-                    <span className="text-[12px] font-bold leading-none">
+                    <span className={patientDossierCollapsibleTitleClass}>
                       Retrait après validation
                       <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">
                         ({retireesApresValidation.length})
@@ -3946,7 +3947,7 @@ export function PatientProductRequestActions({
               {lignesNonRetenues.length > 0 ? (
                 <details className="group w-full min-w-0 rounded-lg border border-border/80 bg-muted/15">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-foreground [&::-webkit-details-marker]:hidden">
-                    <span className="text-[12px] font-bold leading-none">
+                    <span className={patientDossierCollapsibleTitleClass}>
                       Lignes non retenues
                       <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">
                         ({lignesNonRetenues.length})
@@ -4063,7 +4064,7 @@ export function PatientProductRequestActions({
               {retireesApresValidation.length > 0 ? (
                 <details className="group w-full min-w-0 rounded-lg border border-border/80 bg-muted/15">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-foreground [&::-webkit-details-marker]:hidden">
-                    <span className="text-[12px] font-bold leading-none">
+                    <span className={patientDossierCollapsibleTitleClass}>
                       Retrait après validation
                       <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">
                         ({retireesApresValidation.length})
@@ -4098,7 +4099,7 @@ export function PatientProductRequestActions({
               {lignesNonRetenues.length > 0 ? (
                 <details className="group w-full min-w-0 rounded-lg border border-border/80 bg-muted/15">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-foreground [&::-webkit-details-marker]:hidden">
-                    <span className="text-[12px] font-bold leading-none">
+                    <span className={patientDossierCollapsibleTitleClass}>
                       Lignes non retenues
                       <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">
                         ({lignesNonRetenues.length})

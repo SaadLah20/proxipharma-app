@@ -6,9 +6,14 @@ import { Ban, CheckCircle2, Package } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import {
+  patientDossierBucketCountBadgeClass,
+  patientDossierBucketHeaderPaddingClass,
+  patientDossierBucketHeaderShellForPatient,
+  patientDossierBucketTitleClass,
+} from "@/lib/patient-dossier-bucket-section-chrome";
+import {
   type PatientClosedArchiveLineBucketId,
   patientClosedArchiveBucketAccentTextClass,
-  patientClosedArchiveBucketCountBadgeClass,
   patientClosedArchiveBucketHeaderBarClass,
 } from "@/lib/patient-closed-archive-line-buckets";
 
@@ -35,19 +40,21 @@ export function PatientClosedArchiveBucketSection({
   const Icon = BUCKET_ICONS[bucketId];
   const title = t(`${bucketId}.title`);
   const accentText = patientClosedArchiveBucketAccentTextClass(bucketId);
+  const headerBarClass = patientDossierBucketHeaderShellForPatient(
+    patientClosedArchiveBucketHeaderBarClass(bucketId),
+  );
 
   return (
     <section className="w-full min-w-0 space-y-1" aria-label={t(`${bucketId}.aria`)}>
       <div
         className={clsx(
-          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2.5 py-1.5",
-          patientClosedArchiveBucketHeaderBarClass(bucketId)
+          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg",
+          patientDossierBucketHeaderPaddingClass,
+          headerBarClass,
         )}
       >
         <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-        <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">
-          {title}
-        </h4>
+        <h4 className={patientDossierBucketTitleClass}>{title}</h4>
         {subtotalLabel ? (
           <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground">
             {subtotalLabel}
@@ -56,7 +63,7 @@ export function PatientClosedArchiveBucketSection({
         <span
           className={clsx(
             "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
-            patientClosedArchiveBucketCountBadgeClass()
+            patientDossierBucketCountBadgeClass,
           )}
         >
           {count}

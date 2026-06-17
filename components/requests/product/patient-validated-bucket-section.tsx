@@ -7,6 +7,13 @@ import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import type { HubCopyAudience } from "@/lib/hub-copy-audience";
 import {
+  patientDossierBucketCountBadgeClass,
+  patientDossierBucketHeaderPaddingClass,
+  patientDossierBucketHeaderShellForPatient,
+  patientDossierBucketTitleClass,
+  patientDossierBucketTitlePharmacistClass,
+} from "@/lib/patient-dossier-bucket-section-chrome";
+import {
   type PatientValidatedBucketId,
   patientValidatedBucketAccentTextClass,
   patientValidatedBucketAriaTitleFr,
@@ -54,6 +61,12 @@ export function PatientValidatedBucketSection({
       : patientValidatedBucketAriaTitleI18n(tDemandes, bucketId, isTreatedView);
   const accentText = patientValidatedBucketAccentTextClass(bucketId);
   const isPharmacist = audience === "pharmacien";
+  const headerBarClass = isPharmacist
+    ? patientValidatedBucketHeaderBarClass(bucketId)
+    : patientDossierBucketHeaderShellForPatient(patientValidatedBucketHeaderBarClass(bucketId));
+  const countBadgeClass = isPharmacist
+    ? patientValidatedBucketCountBadgeClass()
+    : patientDossierBucketCountBadgeClass;
 
   return (
     <section
@@ -63,12 +76,12 @@ export function PatientValidatedBucketSection({
       <div
         className={clsx(
           "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg",
-          isPharmacist ? "px-3 py-2" : "px-2.5 py-1.5",
-          patientValidatedBucketHeaderBarClass(bucketId),
+          isPharmacist ? "px-3 py-2" : patientDossierBucketHeaderPaddingClass,
+          headerBarClass,
         )}
       >
         <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-        <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">
+        <h4 className={isPharmacist ? patientDossierBucketTitlePharmacistClass : patientDossierBucketTitleClass}>
           {title}
         </h4>
         {subtotalLabel ? (
@@ -79,7 +92,7 @@ export function PatientValidatedBucketSection({
         <span
           className={clsx(
             "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
-            patientValidatedBucketCountBadgeClass(),
+            countBadgeClass,
           )}
         >
           {count}
