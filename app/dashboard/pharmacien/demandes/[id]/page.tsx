@@ -5406,6 +5406,15 @@ export default function PharmacienDemandeDetailPage() {
     !supplyStructuralDirty &&
     !showSupplyDirtyBar;
 
+  /** Avant validation patient : annulation officine (`cancelled`). Après validation → abandon seul. */
+  const pharmacistCancelEligible = Boolean(
+    usesLineWorkflow &&
+      (request.status === "submitted" ||
+        request.status === "in_review" ||
+        request.status === "responded") &&
+      !(canManageResponded && respondedEditMode)
+  );
+
   const pharmacistAbandonEligible = Boolean(
     usesLineWorkflow &&
       canManageSupply &&
@@ -8202,7 +8211,7 @@ export default function PharmacienDemandeDetailPage() {
                       "h-10 w-full text-sm font-semibold disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
                     )}
                   >
-                    Annuler
+                    Annuler les modifications
                   </button>
                   <button
                     type="button"
@@ -8219,11 +8228,7 @@ export default function PharmacienDemandeDetailPage() {
             </DossierInlineActionPanel>
           ) : null}
 
-          {(request.status === "submitted" ||
-            request.status === "in_review" ||
-            request.status === "responded" ||
-            request.status === "confirmed") &&
-          !(canManageResponded && respondedEditMode) ? (
+          {pharmacistCancelEligible ? (
             <div className="mt-6 border-t border-rose-200/50 pt-4">
               <button
                 type="button"
@@ -8255,8 +8260,9 @@ export default function PharmacienDemandeDetailPage() {
           {pharmacistAbandonEligible ? (
             <div className="mt-6 border-t border-orange-200/50 pt-4">
               <p className="mb-3 text-center text-[11px] leading-snug text-muted-foreground">
-                Le patient ne s&apos;est pas présenté ou ne donne plus suite ? Vous pouvez abandonner le dossier sans
-                retirer chaque produit un par un.
+                {request.status === "treated"
+                  ? "Le patient ne s'est pas présenté ou ne donne plus suite ? Vous pouvez abandonner le dossier sans retirer chaque produit un par un."
+                  : "Le patient ne donne plus suite ? Vous pouvez abandonner le dossier sans retirer chaque produit un par un."}
               </p>
               <button
                 type="button"
