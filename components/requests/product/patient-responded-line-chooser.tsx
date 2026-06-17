@@ -49,6 +49,8 @@ import {
   VARIANT_TAB_CHECKBOX_PAD,
   variantRetainBarLabelClass,
   variantRetainBarShellClass,
+  variantCompactRetainButtonLabelClass,
+  variantCompactRetainButtonShellClass,
   variantTabCheckboxBoxClass,
   variantTabFlexClass,
   variantTabShellClass,
@@ -532,18 +534,9 @@ function RespondedCompactRetainButton({
   onToggle: (on: boolean) => void;
 }) {
   const tResponded = useTranslations("demandes.responded");
-  const closedBoxClass =
-    "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
-  const shellClass = cn(
-    "flex w-full max-w-[4.25rem] flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 transition",
-    retained
-      ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
-      : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
-  );
-  const labelClass = cn(
-    "text-[10px] font-bold leading-none",
-    retained ? "text-emerald-800" : "text-foreground"
-  );
+  const shellClass = variantCompactRetainButtonShellClass(retained);
+  const labelClass = variantCompactRetainButtonLabelClass(retained);
+  const closedBoxClass = variantTabCheckboxBoxClass(false);
 
   if (unavailable) {
     return (
@@ -556,7 +549,7 @@ function RespondedCompactRetainButton({
   if (readOnly) {
     return retained ? (
       <div className={shellClass}>
-        <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+        <Check className="size-3.5 shrink-0 text-emerald-600/90" strokeWidth={3} aria-hidden />
         <span className={labelClass}>{tResponded("retainShort")}</span>
       </div>
     ) : null;
@@ -571,7 +564,7 @@ function RespondedCompactRetainButton({
       onClick={() => onToggle(!retained)}
     >
       {retained ? (
-        <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+        <Check className="size-3.5 shrink-0 text-emerald-600/90" strokeWidth={3} aria-hidden />
       ) : (
         <span className={closedBoxClass} aria-hidden />
       )}
