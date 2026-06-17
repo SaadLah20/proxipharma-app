@@ -20,7 +20,9 @@ import {
 } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
 import { ExternalNotificationPrefs } from "@/components/notifications/external-notification-prefs";
+import { SettingsNavLink } from "@/components/settings/settings-nav-link";
 import { PharmacistSettingsSection } from "@/components/pharmacist/pharmacist-settings-section";
+import { profileInitials } from "@/lib/profile-display";
 import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
 import {
   patientLoginIdentifiersListFr,
@@ -38,47 +40,12 @@ type Profile = {
   email: string | null;
 };
 
-function profileInitials(name: string | null | undefined): string {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  const t = (name ?? "").trim();
-  return t ? t.slice(0, 2).toUpperCase() : "?";
-}
-
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-sm text-foreground">{value}</dd>
     </div>
-  );
-}
-
-function SettingsNavLink({
-  href,
-  label,
-  hint,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  hint?: string;
-  icon: typeof Store;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted/40"
-    >
-      <span className="inline-flex min-w-0 items-center gap-2">
-        <Icon className="size-4 shrink-0 text-primary" aria-hidden />
-        <span className="min-w-0">
-          <span className="block">{label}</span>
-          {hint ? <span className="block text-[11px] font-normal text-muted-foreground">{hint}</span> : null}
-        </span>
-      </span>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-    </Link>
   );
 }
 
