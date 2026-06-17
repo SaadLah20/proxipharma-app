@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.71** (menu profil pharmacien) ou **§13.70** (titres sections dossier patient) ou **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.71** (menu profil pharmacien) ou **§13.70** (titres sections dossier patient + pharmacien) ou **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -216,10 +216,10 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 | Étape | Périmètre métier (libellé grand public) | Côté patient | Côté pharmacien |
 |-------|----------------------------------------|--------------|-----------------|
 | 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **affinée** (header dossier sky, lignes compactes, mobile) | Page détail + hub — **à clôturer** pour ce jalon |
-| 2 | **Demande répondue** (`responded`) | **Affinée** (header sky, blocs compacts, alternatives groupées, qty conservée au recochage, indispo sans case, modale confirmation) — QA terrain | À affiner |
-| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | **Affinée** (cartes **`PatientValidatedCompactLineCard`**, blocs sky/teal, header **Modifiée** + **Résumé** si amendements, **Modifier ma validation** + footer ambre en édition, RPC **`patient_update_confirmation`** + migration **`20260625_001`** si optimistic lock) | Affinée (synthèse alignée patient, réservé/commandé) |
-| 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même logique compacte que validée ; pas de liste amendements « pleine page ») | Affinée (enregistrement traçabilité, déclaration traitée si règles OK) |
-| 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | **Affinée** (deux blocs réservés/commandés, passage visible sous en-tête, pastilles réception/reçu, amendements comme validée, total + date passage en pied) | Affinée |
+| 2 | **Demande répondue** (`responded`) | **Affinée** (header sky, blocs compacts, alternatives groupées, qty conservée au recochage, indispo sans case, modale confirmation) — QA terrain | **Affinée** (groupes **`PatientRespondedBucketSection`**, en-têtes **14px** + barre neutre — chrome partagé patient/pharmacien) |
+| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | **Affinée** (cartes **`PatientValidatedCompactLineCard`**, blocs sky/teal, header **Modifiée** + **Résumé** si amendements, **Modifier ma validation** + footer ambre en édition, RPC **`patient_update_confirmation`** + migration **`20260625_001`** si optimistic lock) | **Affinée** (synthèse alignée patient, réservé/commandé ; en-têtes buckets **14px** + barre neutre) |
+| 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même logique compacte que validée ; pas de liste amendements « pleine page ») | Affinée (enregistrement traçabilité, déclaration traitée si règles OK ; mêmes en-têtes buckets) |
+| 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | **Affinée** (deux blocs réservés/commandés, passage visible sous en-tête, pastilles réception/reçu, amendements comme validée, total + date passage en pied) | **Affinée** (mêmes en-têtes buckets ; CTA comptoir inchangés) |
 
 **Statuts « autres » — dossiers figés (règle transverse)**
 
@@ -386,15 +386,14 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
-### Session 2026-06-17 (suite) — Dossier patient : visibilité titres de sections
+### Session 2026-06-17 (suite) — Dossier patient + pharmacien : visibilité titres de sections
 
-**Branche** : **`feature/pharmacist-dashboard-refonte`** — commit **`12a170e`**.
+**Branche** : **`feature/pharmacist-menu-restructure`** (commits **`12a170e`** patient · **`efbe399`** pharmacien).
 
-**Patient** — en-têtes des groupes produit (`responded` / `confirmed` / `processing` / `treated` / archive) :
-- Titres **14px** (`text-sm font-bold`) ; barre d’en-tête **fond neutre** (`bg-card`) — **sans** teinte `bg-sky-50/20` / `bg-teal-50/25` sur le patient.
-- **Filet gauche** coloré conservé (indication discrète déjà en place) ; **hauteur inchangée** (`py-1.5`, une ligne).
-- Chrome partagé **`lib/patient-dossier-bucket-section-chrome.ts`** ; composants **`PatientRespondedBucketSection`**, **`PatientValidatedBucketSection`**, **`PatientClosedArchiveBucketSection`**, **`PatientArchiveCollapsibleSection`** + summaries repliés dans **`patient-product-request-actions.tsx`**.
-- **Pharmacien** : **même chrome** en-tête que patient (titres 14px, barre neutre + filet gauche) via **`audience="pharmacien"`** sur les mêmes composants.
+**Patient et pharmacien** — en-têtes des groupes produit (`responded` / `confirmed` / `processing` / `treated` / archive) :
+- Titres **14px** (`text-sm font-bold`) ; barre d’en-tête **fond neutre** (`bg-card`) — **sans** teinte `bg-sky-50/20` / `bg-teal-50/25`.
+- **Filet gauche** coloré conservé (indication discrète) ; **hauteur inchangée** (`py-1.5`, une ligne).
+- Chrome partagé **`lib/patient-dossier-bucket-section-chrome.ts`** ; composants **`PatientRespondedBucketSection`**, **`PatientValidatedBucketSection`**, **`PatientClosedArchiveBucketSection`**, **`PatientArchiveCollapsibleSection`** (+ **`PharmacistValidatedBucketSection`**, archives figées pharmacien) ; summaries repliés dans **`patient-product-request-actions.tsx`**.
 
 **Migrations** : aucune.
 
@@ -3061,7 +3060,7 @@ Voir **§13.37**.
 
 ### 13.70) Phrase de reprise (titres sections dossier patient + pharmacien — juin 2026)
 
-**« Pharmeto — reprise visibilité titres sections dossier. **Pas de migration**. **Branche** **`feature/pharmacist-dashboard-refonte`**. **Patient et pharmacien** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** + **`PatientArchiveCollapsibleSection`**. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto — reprise visibilité titres sections dossier. **Pas de migration**. **Patient et pharmacien** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** (+ **`PharmacistValidatedBucketSection`**) et **`PatientArchiveCollapsibleSection`**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.69) Phrase de reprise (tableau de bord pharmacien refonte — juin 2026)
 
