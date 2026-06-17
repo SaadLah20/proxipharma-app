@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Languages } from "lucide-react";
-import { LOCALE_COOKIE, type AppLocale } from "@/lib/i18n/config";
+import type { AppLocale } from "@/lib/i18n/config";
+import { setAppLocaleCookie } from "@/lib/i18n/set-app-locale-client";
 
 type LocaleSwitcherProps = {
   /** Masquer pour pharmacien / admin connectés. */
@@ -24,7 +25,7 @@ export function LocaleSwitcher({ visible = true }: LocaleSwitcherProps) {
         setOpen(false);
         return;
       }
-      document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
+      setAppLocaleCookie(next);
       setOpen(false);
       router.refresh();
     },
