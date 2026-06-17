@@ -50,6 +50,7 @@ import {
   variantRetainBarLabelClass,
   variantRetainBarShellClass,
   variantTabCheckboxBoxClass,
+  variantTabFlexClass,
   variantTabShellClass,
 } from "@/lib/variant-tabs-chrome";
 
@@ -297,6 +298,8 @@ type VariantData = {
   proposalReason: string | null;
   /** Statut « Ta demande » (Indisponible, En rupture…) — affiché dans le bloc produit. */
   principalStatusLabel: string | null;
+  /** Libellé court onglet (3 alternatives et plus, onglet non consulté). */
+  tabShortLabel?: string;
 };
 
 const TAB_CHECKBOX_PAD = VARIANT_TAB_CHECKBOX_PAD;
@@ -441,7 +444,7 @@ function RespondedVariantTabs({
   onToggleRetain,
   className,
 }: {
-  tabs: { id: string; label: string; retainable: boolean; tooltip?: string }[];
+  tabs: { id: string; label: string; shortLabel?: string; retainable: boolean; tooltip?: string }[];
   activeTab: string;
   /** Onglet dont la branche est cochée par le patient (`null` = aucune). */
   selectedTabId: string | null;
@@ -451,14 +454,22 @@ function RespondedVariantTabs({
   className?: string;
 }) {
   const tResponded = useTranslations("demandes.responded");
+  const altTabCount = tabs.filter((t) => t.id !== "principal").length;
+  const crowdedTabs = altTabCount >= 3;
 
   return (
     <div className={cn("min-w-0", className)}>
       <div className="flex min-w-0 gap-1" role="tablist" aria-label={tResponded("optionsAria")}>
         {tabs.map((tab) => {
           const isViewing = tab.id === activeTab;
-          const isSelected = selectedTabId === tab.id;
+          const isRetained = selectedTabId === tab.id;
           const dim = !tab.retainable;
+          const displayLabel =
+            tab.id === "principal" || isViewing || !crowdedTabs
+              ? tab.label
+              : (tab.shortLabel ?? tab.label);
+          const ariaTabLabel = tab.label;
+
           return (
             <div
               key={tab.id}
@@ -467,16 +478,15 @@ function RespondedVariantTabs({
                 variantTabShellClass({
                   retainable: tab.retainable,
                   isViewing,
-                  isSelected,
                 }),
-                tab.id === "principal" ? "min-w-[4.75rem] flex-[1.25]" : "min-w-[3.25rem] flex-1"
+                variantTabFlexClass(isViewing, crowdedTabs)
               )}
             >
               <RespondedVariantTabCheckbox
                 tabId={tab.id}
-                tabLabel={tab.label}
+                tabLabel={ariaTabLabel}
                 retainable={tab.retainable}
-                isSelected={isSelected}
+                isSelected={isRetained}
                 readOnly={readOnly}
                 onToggle={(on) => onToggleRetain(tab.id, on)}
               />
@@ -494,16 +504,13 @@ function RespondedVariantTabs({
                       : tResponded("clickToView"))
                 }
                 className={cn(
-                  "min-w-0 flex-1 truncate py-1 pe-1.5 text-start text-[10px] font-semibold leading-none transition",
-                  dim && !isViewing && "text-muted-foreground",
-                  dim && isViewing && "text-foreground",
-                  !dim && isViewing && "text-foreground",
-                  !dim && !isViewing && "text-muted-foreground",
-                  isSelected && "font-bold"
+                  "min-w-0 flex-1 truncate py-1 pe-1.5 text-start text-[10px] leading-none transition",
+                  isViewing ? "font-bold text-foreground" : "font-semibold text-muted-foreground",
+                  dim && isViewing && "text-foreground"
                 )}
                 onClick={() => onTab(tab.id)}
               >
-                {tab.label}
+                {displayLabel}
               </button>
             </div>
           );
@@ -919,13 +926,15 @@ export function RespondedPatientLineChooser({
 
   const buildAltVariant = (alt: ActionItemAltRow, index: number): VariantData => {
     const altProd = requestLineProductEmbed(alt);
+    const rank = index + 1;
     const dispoQty =
       alt.available_qty != null && Number.isFinite(Number(alt.available_qty))
         ? Math.max(0, Math.floor(Number(alt.available_qty)))
         : null;
     return {
       tabId: alt.id,
-      tabLabel: tResponded("altTab", { n: index + 1 }),
+      tabLabel: tResponded("altTab", { n: rank }),
+      tabShortLabel: tResponded("altTabShort", { n: rank }),
       badgeLabel: tCommon("alternative"),
       productName: altProd?.name ?? tCommon("alternative"),
       brand: altProd?.brand?.trim() || null,
@@ -1023,11 +1032,12 @@ export function RespondedPatientLineChooser({
     <li className={cn(patientLineRowClass(requestType), "overflow-visible")}>
       <div className="space-y-2 pb-2">
         <RespondedVariantTabs
-          tabs={variants.map((v, i) => ({
+          tabs={variants.map((v) => ({
             id: v.tabId,
             label: v.tabLabel,
+            shortLabel: v.tabShortLabel,
             retainable: v.cap > 0,
-            tooltip: i > 0 ? v.productName : undefined,
+            tooltip: v.tabId !== "principal" ? v.productName : undefined,
           }))}
           activeTab={activeTab}
           selectedTabId={selectedTabId}
