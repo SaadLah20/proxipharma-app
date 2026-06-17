@@ -9,6 +9,7 @@ import {
   Package,
   ShoppingBag,
   Star,
+  Tag,
   Users,
 } from "lucide-react";
 import type { PharmacistDashboardSnapshot } from "@/lib/pharmacist-dashboard";
@@ -31,10 +32,7 @@ export function PharmacistDashboardOperationsGrid({ snapshot }: { snapshot: Phar
   const clientsHint =
     clients.new_in_period > 0 ? `+${clients.new_in_period} sur la période` : "Ayant interagi avec l'officine";
 
-  const promoHint =
-    operations.promo_offers_active > 0
-      ? `${promo_reservations.pending} réservation(s) · ${operations.promo_offers_active} offre(s) active(s)`
-      : `${promo_reservations.pending} réservation(s) en attente`;
+  const promoHint = `${promo_reservations.pending} réservation(s) en attente`;
 
   const ratingsValue =
     ratings.total_count > 0 ? `${ratings.average_score.toFixed(1).replace(".", ",")}/5` : "—";
@@ -77,6 +75,18 @@ export function PharmacistDashboardOperationsGrid({ snapshot }: { snapshot: Phar
         hint={promoHint}
         href="/dashboard/pharmacien/reservations-packs"
         emphasize={promo_reservations.pending > 0}
+      />
+      <DashboardMetricTile
+        icon={Tag}
+        label="Offres promo"
+        value={operations.promo_offers_active}
+        hint={
+          operations.promo_offers_active > 0
+            ? "Packs publiés sur l'annuaire"
+            : "Aucune offre active"
+        }
+        href="/dashboard/pharmacien/offres-promos"
+        muted={operations.promo_offers_active === 0}
       />
       <DashboardMetricTile
         icon={ShoppingBag}

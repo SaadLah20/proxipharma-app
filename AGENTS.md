@@ -24,7 +24,7 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 
 ## Migrations Supabase (ancre pilote)
 
-Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260835_001`** (tableau de bord pharmacien v2 ; après **`20260834_001`** avis patients hub).
+Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260836_001`** (tableau de bord pharmacien v2 ; après **`20260835_001`** signalements admin form + **`20260834_001`** avis patients hub).
 
 Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publics). **`20260718_001`** + **`20260718_002`** = deux runs. **`20260819_001`** puis **`20260819_002`**.
 

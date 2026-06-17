@@ -19,6 +19,11 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260829_001_market_shortage_skip_pharmacy_catalog_lines.sql` | Rupture marché : pas d’insert **`market_shortages`** si ligne catalogue privé (`product_id` null) |
 | `20260830_001_pharmacy_catalog_restore_archived_hidden.sql` | Mes produits : lister `archived_hidden` + RPC **`pharmacist_restore_pharmacy_product`** |
 | `20260831_001_pharmacy_catalog_list_supprimes_filter.sql` | Filtre RPC : Dépubliés ≠ Supprimés (`archived_hidden` séparé) |
+| `20260832_001_pharmacist_officine_notes_hub.sql` | Hub Notes officine (pharmacien) |
+| `20260833_001_catalog_product_reports.sql` | Signalements produits catalogue (pharmacien + admin) |
+| `20260834_001_pharmacist_pharmacy_ratings_hub.sql` | Hub avis patients (pharmacien) |
+| `20260835_001_catalog_product_report_admin_form.sql` | Signalements : formulaire admin + valeurs appliquées |
+| `20260836_001_pharmacist_dashboard_snapshot_v2.sql` | Tableau de bord pharmacien : RPC snapshot v2 (garde, messages, KPIs officine) |
 | `20260507_001_patient_abandon_cancel_expire_clone.sql` | Règles abandon/annulation/expiré ; batch 24 h → **`expired`** ; RPC **`patient_create_followup_from_expired_product_request`** |
 | `20260507_002_counter_cancel_reason.sql` | Motifs d'annulation ligne au comptoir (client / pharmacie) + détail libre, RPC `pharmacist_set_item_counter_outcome` étendue |
 | `20260507_003_pharmacist_cancel_request.sql` | RPC **`pharmacist_cancel_request`** : annulation totale par la pharmacie avec motif (submitted / in_review / responded / confirmed → cancelled) |

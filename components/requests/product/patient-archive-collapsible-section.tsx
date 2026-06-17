@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
+import { patientDossierCollapsibleTitleClass } from "@/lib/patient-dossier-bucket-section-chrome";
 
 type Props = {
   title: string;
@@ -37,7 +38,7 @@ export function PatientArchiveCollapsibleSection({
           titleClassName ?? "text-foreground"
         )}
       >
-        <span className="text-[12px] font-bold leading-none">
+        <span className={patientDossierCollapsibleTitleClass}>
           {title}
           <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">({count})</span>
         </span>

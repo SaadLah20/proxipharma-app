@@ -100,7 +100,7 @@ export function PharmacistDashboard() {
       setV2Note(
         snapshotHasV2Fields(raw)
           ? ""
-          : "Indicateurs officine (commandes, garde, messages…) : appliquez la migration `20260835_001_pharmacist_dashboard_snapshot_v2.sql`."
+          : "Indicateurs officine (commandes, garde, messages…) : appliquez la migration `20260836_001_pharmacist_dashboard_snapshot_v2.sql`."
       );
       setSnapshot(parsePharmacistDashboardSnapshot(raw));
     }
