@@ -6,15 +6,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import {
+  AlertTriangle,
   Bell,
   Building2,
   ChevronRight,
   Clock,
+  Flag,
   KeyRound,
   Loader2,
   LogOut,
   MapPin,
+  Package,
   Percent,
+  ShoppingBag,
   Sparkles,
   Store,
 } from "lucide-react";
@@ -318,7 +322,7 @@ export function PharmacistSettingsPage() {
 
       <PharmacistSettingsSection
         title="Mon officine"
-        subtitle="Visibilité et outils liés à votre pharmacie"
+        subtitle="Fiche publique, horaires et visibilité"
         defaultOpen
       >
         <div className="space-y-3">
@@ -345,12 +349,6 @@ export function PharmacistSettingsPage() {
               hint="Marges parapharmacie et visibilité des prix patient"
               icon={Percent}
             />
-            <SettingsNavLink
-              href="/dashboard/pharmacien/offres-promos"
-              label="Offres et promos"
-              hint="Packs affichés sur la fiche"
-              icon={Sparkles}
-            />
             {pharmacyId ? (
               <SettingsNavLink
                 href={`/pharmacie/${pharmacyId}`}
@@ -361,6 +359,51 @@ export function PharmacistSettingsPage() {
             ) : null}
           </ul>
         </div>
+      </PharmacistSettingsSection>
+
+      <PharmacistSettingsSection
+        title="Produits"
+        subtitle="Catalogue officine, commandes et ruptures"
+        defaultOpen={false}
+      >
+        <ul className="space-y-2">
+          <SettingsNavLink
+            href="/dashboard/pharmacien/produits-commandes"
+            label="Produits commandés"
+            hint="Réceptions en attente"
+            icon={ShoppingBag}
+          />
+          <SettingsNavLink
+            href="/dashboard/pharmacien/ruptures-marche"
+            label="Produits en rupture"
+            hint="Ruptures catalogue national"
+            icon={AlertTriangle}
+          />
+          <SettingsNavLink href="/dashboard/pharmacien/mes-produits" label="Mes produits" hint="Catalogue privé officine" icon={Package} />
+          <SettingsNavLink
+            href="/dashboard/pharmacien/produits-signales"
+            label="Produits signalés"
+            hint="Signalements catalogue Pharmeto"
+            icon={Flag}
+          />
+        </ul>
+      </PharmacistSettingsSection>
+
+      <PharmacistSettingsSection title="Packs promo" subtitle="Offres et réservations" defaultOpen={false}>
+        <ul className="space-y-2">
+          <SettingsNavLink
+            href="/dashboard/pharmacien/offres-promos"
+            label="Offres promo"
+            hint="Packs publiés sur la fiche"
+            icon={Sparkles}
+          />
+          <SettingsNavLink
+            href="/dashboard/pharmacien/reservations-packs"
+            label="Réservations"
+            hint="Demandes patients sur vos packs"
+            icon={Clock}
+          />
+        </ul>
       </PharmacistSettingsSection>
 
       <PharmacistSettingsSection title="Connexion et sécurité" subtitle="Identifiants et mot de passe" defaultOpen>
@@ -466,26 +509,16 @@ export function PharmacistSettingsPage() {
         </div>
       </PharmacistSettingsSection>
 
-      <PharmacistSettingsSection title="Raccourcis" subtitle="Accès aux hubs principaux" defaultOpen={false}>
+      <PharmacistSettingsSection title="Raccourcis" subtitle="Hubs principaux (détail dans le menu compte)" defaultOpen={false}>
         <ul className="space-y-2 text-sm">
+          <li>
+            <Link href="/dashboard/pharmacien" className={p.linkInline}>
+              Tableau de bord
+            </Link>
+          </li>
           <li>
             <Link href="/dashboard/pharmacien/demandes" className={p.linkInline}>
               Toutes les demandes
-            </Link>
-          </li>
-          <li>
-            <Link href="/dashboard/pharmacien/demandes?parcours=produits" className={p.linkInline}>
-              Demandes de produits
-            </Link>
-          </li>
-          <li>
-            <Link href="/dashboard/pharmacien/demandes?parcours=ordonnances" className={p.linkInline}>
-              Ordonnances
-            </Link>
-          </li>
-          <li>
-            <Link href="/dashboard/pharmacien/demandes?parcours=consultations" className={p.linkInline}>
-              Consultations libres
             </Link>
           </li>
           <li>
@@ -496,7 +529,7 @@ export function PharmacistSettingsPage() {
           <li>
             <Link href="/" className={clsx("inline-flex items-center gap-1.5", p.linkInline)}>
               <MapPin className="size-3.5" aria-hidden />
-              Annuaire interactif des pharmacies
+              Annuaire interactif
             </Link>
           </li>
         </ul>

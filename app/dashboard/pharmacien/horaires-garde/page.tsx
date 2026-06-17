@@ -234,7 +234,7 @@ export default function PharmacienHorairesGardePage() {
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Officine"
         title="Horaires et garde"
         subtitle="Planning affiché sur votre fiche publique (semaine, exceptions, périodes de garde)."
         pharmacyName={pharmacyNom || undefined}

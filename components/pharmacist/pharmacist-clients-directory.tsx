@@ -141,7 +141,7 @@ export function PharmacistClientsDirectory() {
   return (
     <PageShell maxWidthClass="max-w-5xl" className="space-y-5">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Officine"
         title="Clients"
         subtitle="Patients ayant interagi avec votre officine (demandes ou réservations promo)."
         pharmacyName={pharmacyNom || undefined}

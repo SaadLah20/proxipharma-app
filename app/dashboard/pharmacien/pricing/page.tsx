@@ -44,7 +44,7 @@ export default function PharmacienPricingPage() {
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <PharmacistAccountPageHeader
-        eyebrow="Officine & visibilité"
+        eyebrow="Outils"
         title="Moteur de pricing"
         subtitle="Grille parapharmacie (PPH ± marge), règles par marque ou par produit. Médicaments : PPV catalogue fixe."
       />

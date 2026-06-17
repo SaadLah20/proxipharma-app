@@ -170,6 +170,7 @@ export function PharmacistPharmacyCatalogHub() {
   return (
     <PageShell className={chrome.page}>
       <PharmacistAccountPageHeader
+        eyebrow="Produits"
         title="Mes produits"
         subtitle="Catalogue privé de votre officine — débloquez vos réponses et enrichissez la base Pharmeto."
       />

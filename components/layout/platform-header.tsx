@@ -8,13 +8,13 @@ import {
   Bell,
   Building2,
   Calculator,
+  CalendarClock,
   ChevronDown,
   ClipboardList,
   Flag,
   Gift,
   LayoutDashboard,
   LogOut,
-  MapPin,
   Package,
   Settings,
   ShoppingBag,
@@ -186,30 +186,39 @@ export const patientNavMenu: PlatformNavBlock[] = [
 ];
 
 /**
- * Pharmacien : supply → officine → outil → paramètres (navigation principale = barre basse).
+ * Pharmacien : produits → officine → packs → outils → compte (navigation principale = barre basse).
+ * Visites / interactions : accessibles depuis le tableau de bord (journal complet), pas ici.
  */
 export const pharmacienNavMenu: PlatformNavBlock[] = [
   {
     kind: "section",
-    id: "supply",
-    heading: "Suivi approvisionnement",
+    id: "products",
+    heading: "Produits",
     items: [
       { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ShoppingBag },
       { href: "/dashboard/pharmacien/ruptures-marche", label: "Produits en rupture", icon: AlertTriangle },
+      { href: "/dashboard/pharmacien/mes-produits", label: "Mes produits", icon: Package },
+      { href: "/dashboard/pharmacien/produits-signales", label: "Produits signalés", icon: Flag },
     ],
   },
   {
     kind: "section",
     id: "officine",
-    heading: "Officine & visibilité",
+    heading: "Officine",
     items: [
       { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
       { href: "/dashboard/pharmacien/avis-patients", label: "Avis patients", icon: Star },
-      { href: "/dashboard/pharmacien/mes-produits", label: "Mes produits", icon: Package },
-      { href: "/dashboard/pharmacien/produits-signales", label: "Produits signalés", icon: Flag },
       { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche publique", icon: Store },
-      { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos", icon: Gift },
-      { href: "/dashboard/pharmacien/visites-interactions", label: "Visites et interactions", icon: MapPin },
+      { href: "/dashboard/pharmacien/horaires-garde", label: "Horaires et garde", icon: CalendarClock },
+    ],
+  },
+  {
+    kind: "section",
+    id: "promos",
+    heading: "Packs promo",
+    items: [
+      { href: "/dashboard/pharmacien/offres-promos", label: "Offres promo", icon: Gift },
+      { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations", icon: CalendarClock },
     ],
   },
   {
