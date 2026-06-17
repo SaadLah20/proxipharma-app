@@ -27,6 +27,7 @@ export const annuaireAr = {
   },
   card: {
     onCall: "مناوبة",
+    onCallUpcoming: "مناوبة من {time}",
     noGps: "موقع GPS غير مُدخل — الترتيب حسب المسافة غير متاح.",
     viewProfile: "عرض الصفحة",
   },

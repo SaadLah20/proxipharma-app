@@ -89,6 +89,10 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
               </span>
               {pharmacy.open.onCallBadgeVisible ? (
                 <span className={pharmacyOnCallOverlayBadgeClass(true)}>{t("card.onCall")}</span>
+              ) : pharmacy.open.onCallUpcomingToday && pharmacy.open.onCallUpcomingFromLabel ? (
+                <span className={pharmacyOnCallOverlayBadgeClass(false)}>
+                  {t("card.onCallUpcoming", { time: pharmacy.open.onCallUpcomingFromLabel })}
+                </span>
               ) : null}
             </div>
             {pharmacy.distanceKm != null ? (
