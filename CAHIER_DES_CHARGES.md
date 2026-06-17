@@ -386,6 +386,24 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-17 — Tableau de bord pharmacien : refonte cockpit compact
+
+**Page** : `/dashboard/pharmacien` — composant **`PharmacistDashboard`** découpé sous `components/pharmacist/dashboard/`.
+
+**IA (4 zones + ancres)** :
+1. **Action** — bandeau urgent (à traiter, messages non lus, comptoir, attente client) + **bandeau garde** (prochaine période ou CTA horaires).
+2. **Dossiers** — 3 compteurs synthétiques (chez l'officine / chez le client / archives) + lien hub Demandes ; **8 statuts** en section repliable (`CollapsibleDetails`).
+3. **Mon officine** — grille cartes métriques (clients, commandes, ruptures, packs, mes produits, signalements, pricing, exceptions horaires, avis) avec liens hubs.
+4. **Visibilité** — KPI vues/clics + mini graphique évolution ; entonnoir + par type en repliable. Période **7/30/90 j** uniquement ici.
+
+**Retiré** : grille 8 statuts toujours visible, graphiques pleine page, bloc « Accès rapides » (10 pills).
+
+**RPC** : migration **`20260835_001_pharmacist_dashboard_snapshot_v2.sql`** — étend `pharmacist_dashboard_snapshot` (`operations`, `schedule`, `messages`, `ratings`, `requests.responded_pending`). Fallback UI si migration non appliquée.
+
+**Fichiers** : `pharmacist-dashboard.tsx`, `lib/pharmacist-dashboard.ts`, `dashboard/*`, migration `20260835_001`.
+
+**Phrase de reprise** : **§13.69**.
+
 ### Session 2026-06-16 (suite 4) — Alternatives : visibilité patient + pharmacien
 
 **Branche** : (lot en cours sur branche feature).
@@ -2993,6 +3011,10 @@ Voir **§13.37**.
 **Phrase de reprise (étape 6 / fin pilote i18n patient)** :
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
+
+### 13.69) Phrase de reprise (tableau de bord pharmacien refonte — juin 2026)
+
+**« Pharmeto — reprise tableau de bord pharmacien refonte cockpit. **Migration** (si pas fait, après **`20260834_001`**) : **`20260835_001_pharmacist_dashboard_snapshot_v2.sql`**. **Page** `/dashboard/pharmacien` : zones Action (urgent + garde), Dossiers (3 compteurs + 8 statuts repliables), Mon officine (cartes hubs), Visibilité (période 7/30/90 j). **RPC** `pharmacist_dashboard_snapshot` v2 : operations, schedule/garde, messages, avis. **Fichiers** : `components/pharmacist/pharmacist-dashboard.tsx`, `components/pharmacist/dashboard/*`, `lib/pharmacist-dashboard.ts`. Je te donne la tâche ou les retours preview. »**
 
 ### 13.68) Phrase de reprise (alternatives visibilité patient/pharmacien — juin 2026)
 
