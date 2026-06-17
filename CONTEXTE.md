@@ -47,8 +47,14 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 - **Correctifs preview** : typecheck titres hub **`7df29bf`** ; ligne onglets **Tous** qui descendait — shell sans `p.hero` **`f9b4091`**.
 - Branche **`feature/unified-hubs-footers`**, commit **`f9b4091`** — détail **`CAHIER_DES_CHARGES.md` §10** suite 3, reprise **§13.67**. Footers initiaux déjà sur **`main`** (PR **#379**).
 
+**Mise à jour 2026-06-17 (suite) — menu profil pharmacien** :
+- **Branche** **`feature/pharmacist-menu-restructure`** (commit **`543c760`**) — PR vers `main`.
+- **Menu profil** (`pharmacienNavMenu`) : sections **Produits** · **Officine** · **Packs promo** ; pricing / notifications / paramètres en liens seuls.
+- **Visites et interactions** retirées du menu ; page conservée — accès via TDB **Journal complet** (`visibility-panel.tsx`).
+- Eyebrows hubs + sections **Paramètres** alignés. **Pas de migration**. Reprise **§13.71** · journal **§10 session 2026-06-17 (suite)**.
+
 **Mise à jour 2026-06-17 — tableau de bord pharmacien refonte cockpit** :
-- **Branche** **`feature/pharmacist-dashboard-refonte`** (commit **`baab720`**) — PR vers `main`.
+- **Branche** **`feature/pharmacist-dashboard-refonte`** — mergé **`main`** (PR **#394**, commit **`d2628a2`**).
 - **Page** **`/dashboard/pharmacien`** : 4 zones (Action + garde, Dossiers, Mon officine, Visibilité) ; composants **`components/pharmacist/dashboard/*`** ; RPC **`pharmacist_dashboard_snapshot`** v2.
 - **Migration** **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`** (après **`20260835_001`** signalements admin form). *Renommée depuis `20260835_*` dashboard pour éviter collision avec `20260835_001_catalog_product_report_admin_form.sql`.*
 - Ancre migrations **`AGENTS.md`** → **`20260836_001`** · reprise **§13.69** · journal **§10 session 2026-06-17**.
@@ -159,7 +165,7 @@ Réduire la dépendance aux UUID pour les humains ; annuaire, support téléphon
 Implémentation : séquences PostgreSQL, table `pharmacy_request_ref_counters`, triggers (trigger demande en **SECURITY DEFINER**). Si la signature **`RETURNS TABLE`** des RPC `pharmacist_patient_contact_for_request` / `pharmacist_patient_directory_for_my_pharmacy` change → **`DROP FUNCTION` puis `CREATE`** (sinon erreur **`42P13`**). Front : **`lib/public-ref.ts`**, filtres hubs demandes patient/pharmacien, annuaire `/`.
 
 ### Chrome plateforme
-`components/layout/platform-chrome.tsx` + `platform-header.tsx` + **`platform-bottom-nav.tsx`** : header fixe ; **dossiers = barre basse** (4 types D/O/C/packs) ; menu profil = pharmacies + paramètres (patient sans Annuaire/Notifications dans le menu — cloche in-app conservée). Redirection après auth : **`lib/post-auth-redirect.ts`**.
+`components/layout/platform-chrome.tsx` + `platform-header.tsx` + **`platform-bottom-nav.tsx`** : header fixe ; **dossiers = barre basse** (4 types D/O/C/packs). **Patient** : menu profil = pharmacies + paramètres (sans Annuaire/Notifications — cloche in-app conservée). **Pharmacien** : menu profil en sections **Produits** / **Officine** / **Packs promo** + pricing / notifications / paramètres ; **Visites et interactions** hors menu (accès TDB). Redirection après auth : **`lib/post-auth-redirect.ts`**.
 
 ### Notifications & analytics pharmacie (migrations `20260505_003` … `006`)
 Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_engagement_events`** pour vues/clics fiche ; dashboard pharmacien (Recharts) avec repli si table absente (`lib/pharmacy-engagement.ts`). Fallback nom patient dans le trigger d’émission si **`full_name` vide** (**`20260505_006`**, fichier SQL daté même jour).

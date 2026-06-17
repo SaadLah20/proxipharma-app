@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.70** (titres sections dossier patient) ou **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260836_001`** si pas fait — après **`20260831_001`** Mes produits Supprimés, notes officine **`20260832_001`**, signalements catalogue **`20260833_001`**, avis patients **`20260834_001`**, signalements admin form **`20260835_001`**, tableau de bord pharmacien v2 **`20260836_001`**) → phrase **§13.71** (menu profil pharmacien) ou **§13.70** (titres sections dossier patient) ou **§13.69** (TDB pharmacien) ou **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -394,7 +394,7 @@ git checkout pilote-stable-2026-05-24
 - Titres **14px** (`text-sm font-bold`) ; barre d’en-tête **fond neutre** (`bg-card`) — **sans** teinte `bg-sky-50/20` / `bg-teal-50/25` sur le patient.
 - **Filet gauche** coloré conservé (indication discrète déjà en place) ; **hauteur inchangée** (`py-1.5`, une ligne).
 - Chrome partagé **`lib/patient-dossier-bucket-section-chrome.ts`** ; composants **`PatientRespondedBucketSection`**, **`PatientValidatedBucketSection`**, **`PatientClosedArchiveBucketSection`**, **`PatientArchiveCollapsibleSection`** + summaries repliés dans **`patient-product-request-actions.tsx`**.
-- **Pharmacien** : barres teintées et typo **12–13px** inchangées (`audience="pharmacien"`).
+- **Pharmacien** : **même chrome** en-tête que patient (titres 14px, barre neutre + filet gauche) via **`audience="pharmacien"`** sur les mêmes composants.
 
 **Migrations** : aucune.
 
@@ -414,13 +414,32 @@ git checkout pilote-stable-2026-05-24
 
 **RPC** : migration **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`** — étend `pharmacist_dashboard_snapshot` (`operations`, `schedule`, `messages`, `ratings`, `requests.responded_pending`). Fallback UI si migration non appliquée. *(Fichier renommé depuis `20260835_*` pour éviter collision avec `20260835_001_catalog_product_report_admin_form.sql`.)*
 
-**Branche / PR** : **`feature/pharmacist-dashboard-refonte`** — commit **`baab720`**.
+**Branche / PR** : **`feature/pharmacist-dashboard-refonte`** — mergé **`main`** (PR **#394**).
 
 **Migrations Supabase** : **`20260836_001`** appliquée (pilote).
 
 **Fichiers** : `pharmacist-dashboard.tsx`, `lib/pharmacist-dashboard.ts`, `dashboard/*`, migration `20260836_001`.
 
 **Phrase de reprise** : **§13.69**.
+
+### Session 2026-06-17 (suite) — Menu profil pharmacien : sections Produits / Officine / Packs promo
+
+**Branche** : **`feature/pharmacist-menu-restructure`** — commit **`543c760`**.
+
+**Menu profil** (`pharmacienNavMenu`, `platform-header.tsx`) — 3 sections + liens outils :
+1. **Produits** — commandés, rupture marché, mes produits, signalés.
+2. **Officine** — clients, avis patients, ma fiche publique, horaires et garde.
+3. **Packs promo** — offres promo, réservations.
+
+Liens seuls : moteur de pricing, notifications, mes paramètres.
+
+**Retiré du menu** : **Visites et interactions** — page **`/dashboard/pharmacien/visites-interactions`** conservée ; accès via TDB zone **Visibilité** → lien **Journal complet**.
+
+**Cohérence pages** : fil d'Ariane (`eyebrow` **`PharmacistAccountPageHeader`**) — **Produits**, **Officine**, **Packs promo**, **Outils** (pricing), **Visibilité** (analytics). **Paramètres** : sections **Produits** et **Packs promo** ajoutées (miroir menu).
+
+**Migrations** : aucune.
+
+**Phrase de reprise** : **§13.71**.
 
 ### Session 2026-06-16 (suite 4) — Alternatives : visibilité patient + pharmacien
 
@@ -3036,13 +3055,17 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
-### 13.70) Phrase de reprise (titres sections dossier patient — juin 2026)
+### 13.71) Phrase de reprise (menu profil pharmacien — juin 2026)
 
-**« Pharmeto — reprise visibilité titres sections dossier patient. **Pas de migration**. **Branche** **`feature/pharmacist-dashboard-refonte`** (commit **`12a170e`**). **Patient** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** + **`PatientArchiveCollapsibleSection`**. **Pharmacien** : style barre teintée inchangé. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto — reprise menu profil pharmacien. **Pas de migration**. **Branche** **`feature/pharmacist-menu-restructure`** (commit **`543c760`**). **Menu** `pharmacienNavMenu` : sections **Produits** (commandés, rupture, mes produits, signalés), **Officine** (clients, avis, ma fiche, horaires-garde), **Packs promo** (offres, réservations) ; liens pricing / notifications / paramètres. **Visites et interactions** hors menu — accès TDB zone Visibilité (**Journal complet** → `/dashboard/pharmacien/visites-interactions`). **Eyebrows** hubs + **Paramètres** alignés. **Fichiers** : `platform-header.tsx`, hubs `pharmacist-*`, `pharmacist-settings-page.tsx`. Je te donne la tâche ou les retours preview. »**
+
+### 13.70) Phrase de reprise (titres sections dossier patient + pharmacien — juin 2026)
+
+**« Pharmeto — reprise visibilité titres sections dossier. **Pas de migration**. **Branche** **`feature/pharmacist-dashboard-refonte`**. **Patient et pharmacien** : en-têtes buckets (**À réserver**, **À commander**, **Disponibles**, **Indisponibles**, **Réservés/Commandés pour vous**, archives…) — titre **14px**, barre **neutre** + filet gauche indicatif ; hauteur **`py-1.5`** inchangée. **Chrome** : **`lib/patient-dossier-bucket-section-chrome.ts`** ; sections **`Patient*BucketSection`** + **`PatientArchiveCollapsibleSection`**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.69) Phrase de reprise (tableau de bord pharmacien refonte — juin 2026)
 
-**« Pharmeto — reprise tableau de bord pharmacien refonte cockpit. **Migration** (si pas fait, après **`20260835_001`**) : **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`**. **Branche** **`feature/pharmacist-dashboard-refonte`**. **Page** `/dashboard/pharmacien` : zones Action (urgent + garde), Dossiers (3 compteurs + 8 statuts repliables), Mon officine (cartes hubs), Visibilité (période 7/30/90 j). **RPC** `pharmacist_dashboard_snapshot` v2 : operations, schedule/garde, messages, avis. **Fichiers** : `components/pharmacist/pharmacist-dashboard.tsx`, `components/pharmacist/dashboard/*`, `lib/pharmacist-dashboard.ts`. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto — reprise tableau de bord pharmacien refonte cockpit. **Migration** (si pas fait, après **`20260835_001`**) : **`20260836_001_pharmacist_dashboard_snapshot_v2.sql`**. **Livré** sur **`main`** (PR **#394**). **Page** `/dashboard/pharmacien` : zones Action (urgent + garde), Dossiers (3 compteurs + 8 statuts repliables), Mon officine (cartes hubs), Visibilité (période 7/30/90 j) ; lien **Journal complet** vers visites-interactions. **RPC** `pharmacist_dashboard_snapshot` v2 : operations, schedule/garde, messages, avis. **Fichiers** : `components/pharmacist/pharmacist-dashboard.tsx`, `components/pharmacist/dashboard/*`, `lib/pharmacist-dashboard.ts`. Je te donne la tâche ou les retours preview. »**
 
 ### 13.68) Phrase de reprise (alternatives visibilité patient/pharmacien — juin 2026)
 
