@@ -41,6 +41,13 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-19 — WhatsApp M2 lot 4 passage** :
+- **Branche** **`feature/whatsapp-passage-lot4`** (commit **`b04b315`**) — PR vers `main`.
+- Templates Meta Approved **16/06/2026** : rappel passage patient, alerte expiration pharmacien, passage manqué pharmacien.
+- Vars Vercel : **`_PICKUP_REMINDER`**, **`_PHARMACY_RESPONDED_EXPIRY`**, **`_PHARMACY_PICKUP_MISSED`** — détail **`docs/WHATSAPP-NOTIFS-REPRISE.md`**, **`RUNBOOK.md` §10**.
+- **14 événements WhatsApp** pilote après vars + redeploy ; **pas de migration** (enqueue déjà OK via **`20260823_001`** + **`20260828_001`**).
+- Phrase reprise **§13.72** · journal **§10 session 2026-06-19**.
+
 **Mise à jour 2026-06-16 (suite 3) — Hub demandes : bandeau unifié** :
 - **`RequestUnifiedHubChrome`** : parcours + titre centré + onglets Tableau de bord | Liste dans un seul bandeau ; plus de lien retour annuaire/TDB ni bouton Notifications (pharmacien) dans le hub.
 - Liste : **`HubListScopeCount`** (**X/Y actives**) à côté de **Actives seulement** ; dashboard parcours **Tous** = couleurs charte plateforme (`usePlatformAccent`).

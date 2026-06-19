@@ -2,7 +2,7 @@
 
 Document de reprise pour fondateur + agent. Détail ops : **`RUNBOOK.md` §10**.
 
-## État au 15/06/2026
+## État au 19/06/2026 — **14 événements pilote** (M2 complet après vars Vercel lot 4)
 
 ### Livré en prod (PR **#344** — `feature/whatsapp-c-pilote`, mergée `main`)
 
