@@ -57,18 +57,17 @@ Routes UI : **`/dashboard/pharmacien/mes-produits`**, **`/admin/produits-communa
 | Service | Endpoint / canal | Utilisation | Variables d’environnement |
 |---------|------------------|-------------|---------------------------|
 | **Resend** | `https://api.resend.com/emails` | E-mails hors-app (file `notification_external_queue`, canal `email`) | `RESEND_API_KEY`, `EMAIL_FROM` |
-| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | **11 templates actifs** (lot 3 pharmacien) ; **3 passage** en attente Meta | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
+| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | **14 templates actifs** (pilote M2 complet, lot 4 passage juin 2026) | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
 | **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | **Legacy** — plus d’enqueue SMS métier (`20260811_001`) ; route test `/api/cron/test-external-sms` seulement | `TWILIO_SMS_FROM` (optionnel) |
 | **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** notifs métier | Config dashboard Supabase + compte Twilio |
 | **Supabase Auth API** | `GET .../auth/v1/user` | Vérification JWT sur routes API (`lib/verify-bearer-user.ts`) | Clés Supabase |
 
 **Implémentation** : `lib/external-notification-queue-worker.ts`, `lib/twilio-whatsapp.ts`.
 
-### Prévu (M2 suite — après approbation Meta)
+### Prévu (hors pilote M2 WhatsApp)
 
 | Service | Statut | Usage prévu |
 |---------|--------|-------------|
-| **WhatsApp passage (3 templates)** | Pas encore soumis Meta | pickup reminder, pharma responded expiry, pharma pickup missed |
 | **SMTP personnalisé Supabase** | Recommandé prod | E-mails Auth (OTP, reset) via Resend/SendGrid côté Supabase |
 
 ---
@@ -174,7 +173,6 @@ Prérequis scripts : `.env.local` avec `SUPABASE_SERVICE_ROLE_KEY` ; sous Window
 - Paiement (Stripe, CMI, etc.)
 - Cartographie payante (Google Maps Platform, Mapbox API)
 - Analytics tiers (GA4, Posthog, Sentry) — analytics fiche = RPC `pharmacist_profile_analytics`
-- Envoi WhatsApp API automatisé pharmacien + événements étendus (patient P0 livré — `RUNBOOK.md` §10)
 - OpenAI / OCR cloud (ordonnance = upload + saisie pharmacien)
 
 ---
